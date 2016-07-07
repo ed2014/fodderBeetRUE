@@ -1,0 +1,212 @@
+---
+title: "RUE Fodder Beet"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+```
+
+Read
+
+```{r Read, include=FALSE, echo=FALSE}
+
+fileFolder <- "C:\\GitHubRepos\\RUE_FodderBeet\\"
+
+info <- read.table(paste0(fileFolder, "RUE.txt"), header = TRUE)
+
+str(info)
+
+info$N_Treatments <- as.factor(info$N_Treatments)
+info$Date <- dmy(info$Date )
+info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
+
+summary(info)
+head(info)
+```
+
+
+```{r TimeSeries, echo=FALSE, warning=FALSE}
+
+info %>%
+ # dplyr::select(-Shoot_DM, -Bulb_DM) %>%
+  tidyr::gather("Variable", "Value",11:12) %>%
+  mutate(Variable = as.factor(Variable))  %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date, Variable) %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=Date,y=Value_mean, 
+             shape=factor(N_Treatments),
+             colour=factor(Water_treat_level))) +
+  geom_point() +
+  geom_line() +
+  facet_grid(Variable~Experiment, scales= "free") +
+  ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
+  xlab("Sampling date") +
+  geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
+                    ymax=Value_mean+Value_sd/2), 
+                width=0.25)
+  
+  
+```
+
+## Including Plots
+
+```{r N_effect, echo=FALSE, warning=FALSE}
+
+# light interception
+info %>%
+  filter(Stage == "final") %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=N_Treatments,y=Interception_mean, 
+             shape=factor(Water_Treatments),
+             colour=factor(Water_treat_level))) +
+  geom_point() +
+  ylab("Intercepted light (MJ/m2) ") +
+  xlab(" N rate (kg N/ha)") +
+  geom_errorbar(aes(ymin=Interception_mean-Interception_sd/2,
+                    ymax=Interception_mean+Interception_sd/2), 
+                width=0.25) +
+ # facet_wrap(Experiment~Potential, ncol=3)
+   facet_grid(Potential~Experiment)
+
+
+# biomass
+info %>%
+  filter(Stage == "final") %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=N_Treatments,y=Total_DM_mean, 
+             shape=factor(Water_Treatments),
+             colour=factor(Water_treat_level))) +
+  geom_point() +
+  ylab("Total biomass (g/m2) ") +
+  xlab(" N rate (kg N/ha)") +
+  geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd/2,
+                    ymax=Total_DM_mean+Total_DM_sd/2), 
+                width=0.25) +
+ # facet_wrap(Experiment~Potential, ncol=3)
+   facet_grid(Potential~Experiment)
+
+
+
+```
+
+
+
+
+```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE}
+
+info %>%
+ # dplyr::select(Date, N_Treatments, Water_Treatments,Total_DM,Interception)  %>%
+  group_by(N_Treatments, Water_Treatments,Water_treat_level,Date, Potential) %>%
+  mutate(Total_DM = Total_DM) %>% # from t/ha to g/m2
+  summarise_each(funs(mean,sd)) %>%
+  ggplot(aes(x=Interception_mean,y=Total_DM_mean, 
+             shape=factor(N_Treatments),
+             colour=factor(Water_treat_level))) +
+  geom_point() +
+  geom_smooth(method=lm, se=FALSE) +
+  ylab("Total biomass (g/m2) ") +
+  xlab(" Light interception (MJ/m2)") +
+    geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd/2,
+                    ymax=Total_DM_mean+Total_DM_sd/2)) +
+ # facet_wrap(~N_Treatments, ncol=3)
+ facet_grid(.~Potential)
+
+
+```
+
+
+```{r ANOVA, echo=FALSE, warning=FALSE, include=TRUE}
+
+# calculate RUE per plot
+
+head(info)
+
+# create index for each rep (observation period and unit as a rueChunk)
+info <- info %>%
+mutate(rueChunk = paste0(Experiment,"_", 
+                         N_Treatments,"_" ,
+                         Water_treat_level,"_", 
+                         Rep))
+
+rounds <- unique(info$rueChunk)
+
+# loop through all teh individual periods/treats/experiments
+resTable <- data.frame(NULL)
+
+for(i in 1:length(rounds)) {
+  
+ thisStat <- NULL
+  
+ buf <- info[info$rueChunk == rounds[i],]
+ 
+ meas <- buf$Total_DM 
+ sim  <- buf$Interception
+  
+  n_s <- length(sim)
+  n_m <- length(meas)
+  model <- lm(meas~sim)
+  sim_sq <- sum((sim - mean(sim))^2)
+  mes_sq <- sum((meas - mean(meas))^2)
+  r2 <- summary(model)$r.squared
+  slope <- model$coefficients[[2]]
+  int <- model$coefficients[[1]]
+  
+ thisStat <- data.frame(Exp = buf$Experiment[1], 
+                        N_treat = buf$N_Treatments[1], 
+                        W_treat = buf$Water_treat_level[1],
+                        Rep = buf$Rep[1],
+                        n = n_s,
+                        RUE = slope, 
+                        intercept=int, 
+                        R2=r2)
+ 
+ if(i==1) {
+   resTable <- thisStat
+ } else {
+   resTable <- rbind(resTable,thisStat)
+ }
+ 
+ 
+  
+}
+
+
+summary(resTable)
+# colnames(resTable) <- c("Experiment","N_Treatments", 
+#                         "Water_Treatments", "Rep",
+#                         "RUE", "Intercept", "R2")
+head(resTable)
+
+resTable %>%
+  kable(format = "markdown")
+
+
+# graph
+resTable %>%
+  group_by(N_treat, W_treat) %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=N_treat, y=as.numeric(RUE_mean),
+             shape=factor(W_treat),
+             colour=factor(W_treat))) +
+  geom_point(aes(size = 2)) +
+  geom_line() +
+  ylab("Radiation use efficiency (g/MJ) ") +
+  xlab(" N rate (kg N/ha)")+
+    geom_errorbar(aes(ymin=RUE_mean-RUE_sd/2,
+                    ymax=RUE_mean+RUE_sd/2), width = 0.25) +
+  ylim(2, 3)
+
+
+
+```
+
