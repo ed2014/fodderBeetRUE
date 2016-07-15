@@ -125,7 +125,7 @@ info %>%
 ```
 
 
-```{r ANOVA, echo=FALSE, warning=FALSE, include=TRUE}
+```{r RUE, echo=FALSE, warning=FALSE, include=TRUE}
 
 # calculate RUE per plot
 
@@ -206,7 +206,69 @@ resTable %>%
                     ymax=RUE_mean+RUE_sd/2), width = 0.25) +
   ylim(2, 3)
 
+# normalise within each experiment
+resTable %>%
+  group_by(Exp, Rep) %>%
+  mutate(RUEmax = max(RUE)) %>%
+  ungroup() %>%
+  mutate(RUEnorm = RUE/RUEmax) %>%
+  group_by(N_treat, W_treat) %>%
+  summarise_each(funs(mean, sd)) %>%
+  
+  ggplot(aes(x=N_treat, y=as.numeric(RUEnorm_mean),
+             shape=factor(W_treat),
+             colour=factor(W_treat))) +
+  geom_point(aes(size = 2)) +
+  geom_line() +
+  ylab("Normalised radiation use efficiency (0-1) ") +
+  xlab(" N rate (kg N/ha)")+
+    geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
+                    ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.25) +
+  ylim(0.5, 1)
+  
 
 
 ```
+
+ANOVA RUE
+
+```{r ANOVA}
+
+
+
+
+```
+
+Partitioning
+
+```{r}
+
+info %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date) %>%
+  dplyr::select(Shoot_DM, Bulb_DM) %>%
+  summarise_each(funs(mean, sd)) %>%
+  tidyr::gather("Variable", "Value",7:8) %>%
+  ggplot(aes(x=Date,y=Value)) +
+  geom_area(aes(colour=Variable)) +
+  facet_grid(.~Experiment, scales= "free") +
+  ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
+  xlab("Sampling date") +
+  geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
+                    ymax=Value_mean+Value_sd/2), 
+                width=0.25)
+
+# make it reproducible
+set.seed(1492)
+Sector <- rep(c("S01","S02","S03","S04","S05","S06","S07"),times=7)
+Year <- rep(c("1950","1960","1970","1980","1990","2000","2010"),each=7)
+Value <- runif(49, 10, 100)
+df <- data.frame(Sector,Year,Value)
+
+gg <- ggplot(df, aes(x=as.numeric(as.character(Year)), y=Value))
+gg <- gg + geom_area(aes(colour=Sector, fill=Sector))
+gg
+
+
+```
+
 
