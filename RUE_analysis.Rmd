@@ -18,7 +18,7 @@ Read
 
 ```{r Read, include=FALSE, echo=FALSE}
 
-fileFolder <- "C:\\GitHubRepos\\RUE_FodderBeet\\"
+fileFolder <- "C:\\GitHubRepos\\FodderBeetRUE_2016\\"
 
 info <- read.table(paste0(fileFolder, "RUE.txt"), header = TRUE)
 
@@ -207,16 +207,20 @@ resTable %>%
   ylim(2, 3)
 
 # normalise within each experiment
-resTable %>%
+rue_norm <- resTable %>%
   group_by(Exp, Rep) %>%
   mutate(RUEmax = max(RUE)) %>%
   ungroup() %>%
-  mutate(RUEnorm = RUE/RUEmax) %>%
-  group_by(N_treat, W_treat) %>%
+  mutate(RUEnorm = RUE/RUEmax) 
+
+head(rue_norm)
+
+rue_norm %>%
+  group_by(N_treat, W_treat,Exp) %>%
   summarise_each(funs(mean, sd)) %>%
   
   ggplot(aes(x=N_treat, y=as.numeric(RUEnorm_mean),
-             shape=factor(W_treat),
+             shape=factor(Exp),
              colour=factor(W_treat))) +
   geom_point(aes(size = 2)) +
   geom_line() +
@@ -235,7 +239,46 @@ ANOVA RUE
 ```{r ANOVA}
 
 
+exp <- unique(resTable$Exp)
 
+
+for(e in 1:length(exp)) {
+  
+  if(e == 1) {
+    
+anova <- NULL
+df <- NULL
+df <- resTable %>% subset(Exp == exp[e])
+
+anova <- aov(RUE ~ N_treat+Rep, data = df)
+print(summary(anova))
+    
+  } else if ( e == 2) {
+    
+anova <- NULL
+df <- NULL
+df <- resTable %>% subset(Exp == exp[e])
+ 
+  
+anova <- aov(RUE ~ N_treat*W_treat+Rep, data = df)
+print(summary(anova))
+    
+  }  else if (e == 3) {
+    
+anova <- NULL
+df <- NULL
+df <- resTable %>% subset(Exp == exp[e])
+
+anova <- aov(RUE ~ W_treat+Rep, data = df)
+print(summary(anova))
+    
+  }
+  
+}
+
+
+# run a Tukey test if there are differences
+TukeyHSD(anova)
 
 ```
 
