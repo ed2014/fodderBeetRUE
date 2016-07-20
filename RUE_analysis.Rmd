@@ -251,7 +251,10 @@ df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
 
 anova <- aov(RUE ~ N_treat+Rep, data = df)
+print("############## EXP A")
 print(summary(anova))
+print(TukeyHSD(anova))
+
     
   } else if ( e == 2) {
     
@@ -261,7 +264,9 @@ df <- resTable %>% subset(Exp == exp[e])
  
   
 anova <- aov(RUE ~ N_treat*W_treat+Rep, data = df)
+print("############## EXP B")
 print(summary(anova))
+print(TukeyHSD(anova))
     
   }  else if (e == 3) {
     
@@ -270,46 +275,44 @@ df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
 
 anova <- aov(RUE ~ W_treat+Rep, data = df)
+print("############## EXP C")
 print(summary(anova))
+print(TukeyHSD(anova))
     
   }
   
 }
 
-
-# run a Tukey test if there are differences
-TukeyHSD(anova)
-
 ```
 
 Partitioning
 
-```{r}
+```{r Partitioning}
 
-info %>%
-  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date) %>%
-  dplyr::select(Shoot_DM, Bulb_DM) %>%
-  summarise_each(funs(mean, sd)) %>%
-  tidyr::gather("Variable", "Value",7:8) %>%
-  ggplot(aes(x=Date,y=Value)) +
-  geom_area(aes(colour=Variable)) +
-  facet_grid(.~Experiment, scales= "free") +
-  ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
-  xlab("Sampling date") +
-  geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
-                    ymax=Value_mean+Value_sd/2), 
-                width=0.25)
+# info %>%
+#   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date) %>%
+#   dplyr::select(Shoot_DM, Bulb_DM) %>%
+#   summarise_each(funs(mean, sd)) %>%
+#   tidyr::gather("Variable", "Value",7:8) %>%
+#   ggplot(aes(x=Date,y=Value)) +
+#   geom_area(aes(colour=Variable)) +
+#   facet_grid(.~Experiment, scales= "free") +
+#   ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
+#   xlab("Sampling date") +
+#   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
+#                     ymax=Value_mean+Value_sd/2), 
+#                 width=0.25)
 
 # make it reproducible
-set.seed(1492)
-Sector <- rep(c("S01","S02","S03","S04","S05","S06","S07"),times=7)
-Year <- rep(c("1950","1960","1970","1980","1990","2000","2010"),each=7)
-Value <- runif(49, 10, 100)
-df <- data.frame(Sector,Year,Value)
-
-gg <- ggplot(df, aes(x=as.numeric(as.character(Year)), y=Value))
-gg <- gg + geom_area(aes(colour=Sector, fill=Sector))
-gg
+# set.seed(1492)
+# Sector <- rep(c("S01","S02","S03","S04","S05","S06","S07"),times=7)
+# Year <- rep(c("1950","1960","1970","1980","1990","2000","2010"),each=7)
+# Value <- runif(49, 10, 100)
+# df <- data.frame(Sector,Year,Value)
+# 
+# gg <- ggplot(df, aes(x=as.numeric(as.character(Year)), y=Value))
+# gg <- gg + geom_area(aes(colour=Sector, fill=Sector))
+# gg
 
 
 ```
