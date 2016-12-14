@@ -16,7 +16,7 @@ library(knitr)
 
 Read
 
-```{r Read, include=FALSE, echo=FALSE}
+```{r Read, include=TRUE, echo=FALSE}
 
 fileFolder <- "C:\\GitHubRepos\\FodderBeetRUE_2016\\"
 
@@ -29,6 +29,10 @@ info$Date <- dmy(info$Date )
 info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
 
 summary(info)
+
+```
+
+```{r, echo=FALSE}
 head(info)
 ```
 
@@ -60,24 +64,6 @@ info %>%
 
 ```{r N_effect, echo=FALSE, warning=FALSE}
 
-# light interception
-info %>%
-  filter(Stage == "final") %>%
-  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
-  summarise_each(funs(mean, sd)) %>%
-  ggplot(aes(x=N_Treatments,y=Interception_mean, 
-             shape=factor(Water_Treatments),
-             colour=factor(Water_treat_level))) +
-  geom_point() +
-  ylab("Intercepted light (MJ/m2) ") +
-  xlab(" N rate (kg N/ha)") +
-  geom_errorbar(aes(ymin=Interception_mean-Interception_sd/2,
-                    ymax=Interception_mean+Interception_sd/2), 
-                width=0.25) +
- # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(Potential~Experiment)
-
-
 # biomass
 info %>%
   filter(Stage == "final") %>%
@@ -97,6 +83,25 @@ info %>%
 
 
 
+```
+
+```{r, warning=FALSE}
+# light interception
+info %>%
+  filter(Stage == "final") %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=N_Treatments,y=Interception_mean, 
+             shape=factor(Water_Treatments),
+             colour=factor(Water_treat_level))) +
+  geom_point() +
+  ylab("Intercepted light (MJ/m2) ") +
+  xlab(" N rate (kg N/ha)") +
+  geom_errorbar(aes(ymin=Interception_mean-Interception_sd/2,
+                    ymax=Interception_mean+Interception_sd/2), 
+                width=0.25) +
+ # facet_wrap(Experiment~Potential, ncol=3)
+   facet_grid(Potential~Experiment)
 ```
 
 
@@ -125,11 +130,11 @@ info %>%
 ```
 
 
-```{r RUE, echo=FALSE, warning=FALSE, include=TRUE}
+```{r RUECalc, echo=FALSE, warning=FALSE, include=TRUE}
 
 # calculate RUE per plot
 
-head(info)
+# head(info)
 
 # create index for each rep (observation period and unit as a rueChunk)
 info <- info %>%
@@ -140,7 +145,7 @@ mutate(rueChunk = paste0(Experiment,"_",
 
 rounds <- unique(info$rueChunk)
 
-# loop through all teh individual periods/treats/experiments
+# loop through all the individual periods/treats/experiments
 resTable <- data.frame(NULL)
 
 for(i in 1:length(rounds)) {
@@ -175,22 +180,28 @@ for(i in 1:length(rounds)) {
  } else {
    resTable <- rbind(resTable,thisStat)
  }
- 
- 
-  
 }
 
+head(resTable)
 
-summary(resTable)
+
 # colnames(resTable) <- c("Experiment","N_Treatments", 
 #                         "Water_Treatments", "Rep",
 #                         "RUE", "Intercept", "R2")
-head(resTable)
 
+
+```
+
+```{r, echo=FALSE}
+summary(resTable)
+```
+
+```{r}
 resTable %>%
-  kable(format = "markdown")
+  kable(format = "markdown", digits = 2)
+```
 
-
+```{r, warning=FALSE}
 # graph
 resTable %>%
   group_by(N_treat, W_treat) %>%
@@ -198,7 +209,7 @@ resTable %>%
   ggplot(aes(x=N_treat, y=as.numeric(RUE_mean),
              shape=factor(W_treat),
              colour=factor(W_treat))) +
-  geom_point(aes(size = 2)) +
+  geom_point(size = 2) +
   geom_line() +
   ylab("Radiation use efficiency (g/MJ) ") +
   xlab(" N rate (kg N/ha)")+
@@ -206,6 +217,9 @@ resTable %>%
                     ymax=RUE_mean+RUE_sd/2), width = 0.25) +
   ylim(2, 3)
 
+```
+
+```{r}
 # normalise within each experiment
 rue_norm <- resTable %>%
   group_by(Exp, Rep) %>%
@@ -214,7 +228,12 @@ rue_norm <- resTable %>%
   mutate(RUEnorm = RUE/RUEmax) 
 
 head(rue_norm)
+```
 
+
+
+
+```{r}
 rue_norm %>%
   group_by(N_treat, W_treat,Exp) %>%
   summarise_each(funs(mean, sd)) %>%
@@ -222,21 +241,19 @@ rue_norm %>%
   ggplot(aes(x=N_treat, y=as.numeric(RUEnorm_mean),
              shape=factor(Exp),
              colour=factor(W_treat))) +
-  geom_point(aes(size = 2)) +
+  geom_point(size = 2) +
   geom_line() +
   ylab("Normalised radiation use efficiency (0-1) ") +
   xlab(" N rate (kg N/ha)")+
     geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
                     ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.25) +
   ylim(0.5, 1)
-  
-
-
 ```
+
 
 ANOVA RUE
 
-```{r ANOVA}
+```{r ANOVA, echo=FALSE}
 
 
 exp <- unique(resTable$Exp)
@@ -251,7 +268,8 @@ df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
 
 anova <- aov(RUE ~ N_treat+Rep, data = df)
-print("############## EXP A")
+print("############## EXP A ##############")
+print(" ")
 print(summary(anova))
 print(TukeyHSD(anova))
 
@@ -264,7 +282,8 @@ df <- resTable %>% subset(Exp == exp[e])
  
   
 anova <- aov(RUE ~ N_treat*W_treat+Rep, data = df)
-print("############## EXP B")
+print("############## EXP B ##############")
+print(" ")
 print(summary(anova))
 print(TukeyHSD(anova))
     
@@ -275,7 +294,8 @@ df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
 
 anova <- aov(RUE ~ W_treat+Rep, data = df)
-print("############## EXP C")
+print("############## EXP C ##############")
+print(" ")
 print(summary(anova))
 print(TukeyHSD(anova))
     
@@ -285,7 +305,11 @@ print(TukeyHSD(anova))
 
 ```
 
-Partitioning
+For RUE vs NNI 
+
+* Water_treat_level == "fullET"
+* 
+
 
 ```{r Partitioning}
 

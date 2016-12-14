@@ -1,0 +1,115 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(segmented)
+
+```
+
+```{r Read}
+fileFolder <- "C:\\GitHubRepos\\FodderBeetRUE_2016\\"
+
+info <- read.table(paste0(fileFolder, "RUE.txt"), header = TRUE)
+
+str(info)
+
+info$N_Treatments <- as.factor(info$N_Treatments)
+info$Date <- dmy(info$Date )
+info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
+
+summary(info)
+```
+
+
+## Test SLN vs Pn
+
+- raw data all points
+
+```{r}
+
+info %>%
+  ggplot(aes(x=SLN, y=Pn, colour=N_Treatments))+
+  geom_point(aes(shape=Water_treat_level)) + 
+  facet_grid(.~Water_Treatments)
+
+```
+
+## Normalise Pn values
+
+- Use only final harvest samples (rationale: )
+- Use only irrigated plots (rationale: )
+- Find maximum by Experiment
+- Average values by N treatment
+- Calculate normalised Pn by N treatment in relation to maximum Pn by treatment (rationale: instantaneous wheather conditions vary too much and affect Pn ... therefore better reduce noise using relative values)
+
+```{r NormalisePn}
+
+df_Pn_norm <- info %>%
+  dplyr::filter(Stage == "final") %>%
+  dplyr::filter(Water_Treatments == "Irrigated") %>%
+  na.omit() %>%
+  group_by(Experiment, N_Treatments) %>%
+  summarise(Pn_sd = sd(Pn), SLN_sd = sd(SLN), Pn = mean(Pn), SLN = mean(SLN)) %>%
+  mutate(Pn_mx = max(Pn)) %>%
+  mutate(Pn_norm = Pn/Pn_mx) %>%
+  mutate(Pn_sd_norm = Pn_sd/Pn_mx)
+
+summary(df_Pn_norm)
+
+```
+
+```{r}
+df_Pn_norm %>%
+  kable(format = "markdown", digits = 2)
+```
+
+
+```{r BrokenStickStats}
+
+      out.lm<-lm(SLN~Pn_norm,data=df_Pn_norm)
+
+# FIXME: Not able to find break
+
+      # o <- segmented(out.lm,seg.Z=~SLN,psi=list(SLN=c(2.42)),
+      #              control=seg.control(display=FALSE))
+      # # show stats
+      # print(summary(o))
+      # 
+      # # find slope
+      # s = slope(o)
+      # s$SLN[2,1]
+      # 
+      # # find estimated break
+      # b = o$psi[,2]
+
+# forced by hand now at the moment: 
+b <- 2.47
+      
+      print(paste0("Break-point is:", b))
+      
+```
+
+```{r Pn_norm_graph}
+
+df_Pn_norm %>%
+  ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments))+
+  geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), linetype=1, colour ="black", size=1.2) +
+  geom_segment(aes(x = b, xend = max(SLN), y = 1, yend = 1), linetype=1, colour ="black", size=1.2) +
+  geom_point(aes(shape=Experiment)) +
+  geom_errorbar(aes(ymin=Pn_norm-Pn_sd_norm/2,
+                    ymax=Pn_norm+Pn_sd_norm/2)) +
+  geom_errorbarh(aes(xmin = SLN-SLN_sd/2,
+                     xmax = SLN+SLN_sd/2))
+
+```
+
