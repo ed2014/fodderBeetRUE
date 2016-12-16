@@ -168,7 +168,8 @@ for(i in 1:length(rounds)) {
   
  thisStat <- data.frame(Exp = buf$Experiment[1], 
                         N_treat = buf$N_Treatments[1], 
-                        W_treat = buf$Water_treat_level[1],
+                        W_treat = buf$Water_Treatments[1],
+                        W_treat_lev = buf$Water_treat_level[1],
                         Rep = buf$Rep[1],
                         n = n_s,
                         RUE = slope, 
@@ -182,6 +183,7 @@ for(i in 1:length(rounds)) {
  }
 }
 
+resTable$Rep <- as.factor(resTable$Rep)
 head(resTable)
 
 
@@ -219,10 +221,10 @@ resTable %>%
 
 ```
 
-```{r}
+```{r NormRUE}
 # normalise within each experiment
 rue_norm <- resTable %>%
-  group_by(Exp, Rep) %>%
+  group_by(Exp) %>% # FIXME: not sure how to select the maximum here. Assuming it's treat
   mutate(RUEmax = max(RUE)) %>%
   ungroup() %>%
   mutate(RUEnorm = RUE/RUEmax) 
@@ -233,14 +235,13 @@ head(rue_norm)
 
 
 
-```{r}
+```{r, warning=FALSE}
 rue_norm %>%
-  group_by(N_treat, W_treat,Exp) %>%
+  group_by(N_treat, W_treat_lev,Exp) %>%
   summarise_each(funs(mean, sd)) %>%
-  
   ggplot(aes(x=N_treat, y=as.numeric(RUEnorm_mean),
              shape=factor(Exp),
-             colour=factor(W_treat))) +
+             colour=factor(W_treat_lev))) +
   geom_point(size = 2) +
   geom_line() +
   ylab("Normalised radiation use efficiency (0-1) ") +
@@ -251,10 +252,80 @@ rue_norm %>%
 ```
 
 
+
+```{r RUE_NNI}
+
+# get RUE per plot and common index
+df_rue <- rue_norm %>% 
+  dplyr::select(Exp,N_treat,W_treat_lev,Rep, RUEnorm, RUE) %>% 
+  mutate(idMerge = paste0(Exp,"_",N_treat,"_",W_treat_lev,"_",Rep)) 
+
+# get NNI per plot and common index
+df_nni <- info %>%
+  filter(Stage== "final") %>% # use only final harvest data as per RUE df
+  dplyr::select(Experiment,N_Treatments,Water_treat_level, Rep, NNI) %>% 
+  mutate(idMerge = paste0(Experiment,"_",N_Treatments,"_",Water_treat_level,"_",Rep)) %>%
+  dplyr::select(-Experiment,-N_Treatments,-Water_treat_level, -Rep) # remove extra labels now
+
+df_rue_nni <- merge(df_nni,df_rue, by = "idMerge" )
+
+df_rue_nni$Rep <- as.factor(df_rue_nni$Rep)
+
+head(df_rue_nni)
+
+```
+
+```{r checkData}
+
+summary(df_rue_nni)
+
+```
+
+```{r}
+
+df_rue_nni %>%
+  ggplot(aes(x=N_treat, y=NNI, colour=Exp)) +
+  geom_jitter() +
+  geom_boxplot(alpha=0.2)
+
+```
+
+```{r}
+
+df_rue_nni %>%
+  filter(W_treat_lev == "fullET") %>%
+  ggplot(aes(x=N_treat, y=NNI,colour=Exp)) +
+  geom_jitter(aes(width=0.2)) +
+  geom_boxplot(alpha=0.2)
+
+```
+
+
+```{r NNI_RUE_Graph, warning=FALSE}
+
+# FIXME: This does not match emmanuel's data in excel needs checking
+
+xBreak = 1.1 # FIXME: just to test
+
+df_rue_nni %>%
+  filter(W_treat_lev == "fullET") %>%
+  na.omit() %>%
+  group_by(Exp,N_treat,W_treat_lev) %>%
+  summarise_each(funs(mean)) %>%
+  ggplot(aes(x=NNI, y=RUEnorm, colour=N_treat, shape=W_treat_lev)) +
+  geom_point() +
+  geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
+               linetype=1, colour ="black", size=1.2) +
+  geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
+  
+```
+
+
 ANOVA RUE
 
 ```{r ANOVA, echo=FALSE}
 
+str(resTable)
 
 exp <- unique(resTable$Exp)
 
@@ -281,7 +352,7 @@ df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
  
   
-anova <- aov(RUE ~ N_treat*W_treat+Rep, data = df)
+anova <- aov(RUE ~ N_treat*W_treat_lev+Rep, data = df)
 print("############## EXP B ##############")
 print(" ")
 print(summary(anova))
@@ -293,7 +364,7 @@ anova <- NULL
 df <- NULL
 df <- resTable %>% subset(Exp == exp[e])
 
-anova <- aov(RUE ~ W_treat+Rep, data = df)
+anova <- aov(RUE ~ W_treat_lev+Rep, data = df)
 print("############## EXP C ##############")
 print(" ")
 print(summary(anova))

@@ -58,6 +58,7 @@ df_Pn_norm <- info %>%
   dplyr::filter(Stage == "final") %>%
   dplyr::filter(Water_Treatments == "Irrigated") %>%
   na.omit() %>%
+#  group_by(Experiment, N_Treatments,Water_Treatments) %>%
   group_by(Experiment, N_Treatments) %>%
   summarise(Pn_sd = sd(Pn), SLN_sd = sd(SLN), Pn = mean(Pn), SLN = mean(SLN)) %>%
   mutate(Pn_mx = max(Pn)) %>%
@@ -102,14 +103,18 @@ b <- 2.47
 ```{r Pn_norm_graph}
 
 df_Pn_norm %>%
-  ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments))+
-  geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), linetype=1, colour ="black", size=1.2) +
+  ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments)) +
+  geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), 
+               linetype=1, colour ="black", size=1.2) +
   geom_segment(aes(x = b, xend = max(SLN), y = 1, yend = 1), linetype=1, colour ="black", size=1.2) +
   geom_point(aes(shape=Experiment)) +
   geom_errorbar(aes(ymin=Pn_norm-Pn_sd_norm/2,
                     ymax=Pn_norm+Pn_sd_norm/2)) +
+ # facet_grid(.~Experiment) +
   geom_errorbarh(aes(xmin = SLN-SLN_sd/2,
-                     xmax = SLN+SLN_sd/2))
+                     xmax = SLN+SLN_sd/2)) +
+  xlab("Specific Leaf Nitrogen (SLN, g N/cm2)") +
+  ylab("Normalised maximum\n photosynthetic rate (fractional)")
 
 ```
 
