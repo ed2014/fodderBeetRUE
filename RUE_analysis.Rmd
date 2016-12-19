@@ -1,9 +1,12 @@
 ---
 title: "RUE Fodder Beet"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
+
 knitr::opts_chunk$set(echo = TRUE)
 
 library(lubridate)
@@ -14,7 +17,7 @@ library(knitr)
 
 ```
 
-Read
+## Read and clean data
 
 ```{r Read, include=TRUE, echo=FALSE}
 
@@ -37,7 +40,7 @@ head(info)
 ```
 
 
-```{r TimeSeries, echo=FALSE, warning=FALSE}
+```{r TimeSeries, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
 
 info %>%
  # dplyr::select(-Shoot_DM, -Bulb_DM) %>%
@@ -45,30 +48,33 @@ info %>%
   mutate(Variable = as.factor(Variable))  %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date, Variable) %>%
   summarise_each(funs(mean, sd)) %>%
+  mutate(Variable = factor(Variable, levels=c("Total_DM", "Interception"))) %>%
   ggplot(aes(x=Date,y=Value_mean, 
              shape=factor(N_Treatments),
              colour=factor(Water_treat_level))) +
   geom_point() +
   geom_line() +
   facet_grid(Variable~Experiment, scales= "free") +
-  ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
+  ylab("Intercepted light (MJ/m2) Total biomass (g/m2)") +
   xlab("Sampling date") +
   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
                     ymax=Value_mean+Value_sd/2), 
-                width=0.25)
+                width=0.25) +
+  theme(legend.title=element_blank(),strip.text.y = element_blank())
   
   
 ```
 
 ## Including Plots
 
-```{r N_effect, echo=FALSE, warning=FALSE}
+```{r N_effect, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
 
 # biomass
 info %>%
   filter(Stage == "final") %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   summarise_each(funs(mean, sd)) %>%
+  mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) %>%
   ggplot(aes(x=N_Treatments,y=Total_DM_mean, 
              shape=factor(Water_Treatments),
              colour=factor(Water_treat_level))) +
@@ -79,18 +85,20 @@ info %>%
                     ymax=Total_DM_mean+Total_DM_sd/2), 
                 width=0.25) +
  # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(Potential~Experiment)
+   facet_grid(Potential~Experiment) +
+  theme(legend.title=element_blank())
 
 
 
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE,fig.height=8, fig.width=8}
 # light interception
 info %>%
   filter(Stage == "final") %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   summarise_each(funs(mean, sd)) %>%
+  mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) %>%
   ggplot(aes(x=N_Treatments,y=Interception_mean, 
              shape=factor(Water_Treatments),
              colour=factor(Water_treat_level))) +
@@ -101,19 +109,22 @@ info %>%
                     ymax=Interception_mean+Interception_sd/2), 
                 width=0.25) +
  # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(Potential~Experiment)
+   facet_grid(Potential~Experiment)+
+  theme(legend.title=element_blank())
 ```
 
+- RUE is estimated between first and last harvest
+- Not forcing to zero due to potential bias
+- First biomass harvest is at very high interception (biased overestimation of RUE?)
 
-
-
-```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE}
+```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
 
 info %>%
  # dplyr::select(Date, N_Treatments, Water_Treatments,Total_DM,Interception)  %>%
-  group_by(N_Treatments, Water_Treatments,Water_treat_level,Date, Potential) %>%
+  group_by(Experiment, N_Treatments, Water_Treatments,Water_treat_level,Date, Potential) %>%
   mutate(Total_DM = Total_DM) %>% # from t/ha to g/m2
   summarise_each(funs(mean,sd)) %>%
+   mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) %>%
   ggplot(aes(x=Interception_mean,y=Total_DM_mean, 
              shape=factor(N_Treatments),
              colour=factor(Water_treat_level))) +
@@ -124,13 +135,14 @@ info %>%
     geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd/2,
                     ymax=Total_DM_mean+Total_DM_sd/2)) +
  # facet_wrap(~N_Treatments, ncol=3)
- facet_grid(.~Potential)
+ facet_grid(Potential~Experiment) +
+  theme(legend.title=element_blank())
 
 
 ```
 
 
-```{r RUECalc, echo=FALSE, warning=FALSE, include=TRUE}
+```{r RUECalc, echo=FALSE, warning=FALSE, include=TRUE,fig.height=8, fig.width=8}
 
 # calculate RUE per plot
 
@@ -154,17 +166,21 @@ for(i in 1:length(rounds)) {
   
  buf <- info[info$rueChunk == rounds[i],]
  
- meas <- buf$Total_DM 
- sim  <- buf$Interception
+ y_int <- buf$Total_DM 
+ x_bio  <- buf$Interception
   
-  n_s <- length(sim)
-  n_m <- length(meas)
-  model <- lm(meas~sim)
-  sim_sq <- sum((sim - mean(sim))^2)
-  mes_sq <- sum((meas - mean(meas))^2)
+  n_s <- length(x_bio)
+  n_m <- length(y_int)
+  model <- lm(y_int~x_bio)
+  x_bio_sq <- sum((x_bio - mean(x_bio))^2)
+  mes_sq <- sum((y_int - mean(y_int))^2)
   r2 <- summary(model)$r.squared
   slope <- model$coefficients[[2]]
+  slope_sig <- summary(model)$coefficients[8]
   int <- model$coefficients[[1]]
+  int_sig <- summary(model)$coefficients[7]
+  bio_max <- max(y_int)
+  light_max <- max(x_bio)  
   
  thisStat <- data.frame(Exp = buf$Experiment[1], 
                         N_treat = buf$N_Treatments[1], 
@@ -173,7 +189,11 @@ for(i in 1:length(rounds)) {
                         Rep = buf$Rep[1],
                         n = n_s,
                         RUE = slope, 
-                        intercept=int, 
+                        slope_dif_zero = round(slope_sig,digits=3),
+                        intercept=int,
+                        int_dif_zero = int_sig,
+                        bio_max = bio_max,
+                        light_max = light_max,
                         R2=r2)
  
  if(i==1) {
@@ -194,8 +214,17 @@ head(resTable)
 
 ```
 
-```{r, echo=FALSE}
+```{r, echo=FALSE,fig.height=8, fig.width=8}
 summary(resTable)
+```
+
+## Check all RUE estimates
+
+```{r,fig.height=8, fig.width=8}
+resTable %>%
+  ggplot(aes(x=N_treat, y=RUE, colour=W_treat)) +
+  geom_point() +
+  facet_grid(.~Exp)
 ```
 
 ```{r}
@@ -203,21 +232,28 @@ resTable %>%
   kable(format = "markdown", digits = 2)
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE,fig.height=8, fig.width=8}
+
+x <- resTable %>%
+  group_by(Exp, N_treat, W_treat) %>%
+  summarise_each(funs(mean, sd))
+
+
 # graph
 resTable %>%
-  group_by(N_treat, W_treat) %>%
+  group_by(Exp, N_treat, W_treat) %>%
+  dplyr::select(RUE) %>%
   summarise_each(funs(mean, sd)) %>%
-  ggplot(aes(x=N_treat, y=as.numeric(RUE_mean),
+  ggplot(aes(x=N_treat, y=as.numeric(mean),
              shape=factor(W_treat),
              colour=factor(W_treat))) +
   geom_point(size = 2) +
   geom_line() +
+  facet_grid(.~Exp) +
   ylab("Radiation use efficiency (g/MJ) ") +
   xlab(" N rate (kg N/ha)")+
-    geom_errorbar(aes(ymin=RUE_mean-RUE_sd/2,
-                    ymax=RUE_mean+RUE_sd/2), width = 0.25) +
-  ylim(2, 3)
+    geom_errorbar(aes(ymin=mean-sd/2,
+                    ymax=mean+sd/2), width = 0.25) 
 
 ```
 
@@ -233,17 +269,17 @@ head(rue_norm)
 ```
 
 
-
-
 ```{r, warning=FALSE}
 rue_norm %>%
-  group_by(N_treat, W_treat_lev,Exp) %>%
+#  mutate(N_treat_num = as.numeric(as.character(N_treat))) %>%
+  filter(Exp != "C") %>% # no N response in exp C
+  group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
   summarise_each(funs(mean, sd)) %>%
-  ggplot(aes(x=N_treat, y=as.numeric(RUEnorm_mean),
-             shape=factor(Exp),
-             colour=factor(W_treat_lev))) +
-  geom_point(size = 2) +
-  geom_line() +
+  ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(RUEnorm_mean),
+             colour=factor(W_treat))) +
+  geom_point(aes(shape=factor(Exp)),size = 4) +
+ # geom_line() +
+  geom_smooth(aes(colour=factor(W_treat)),se = FALSE, method="lm") +
   ylab("Normalised radiation use efficiency (0-1) ") +
   xlab(" N rate (kg N/ha)")+
     geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
@@ -251,77 +287,13 @@ rue_norm %>%
   ylim(0.5, 1)
 ```
 
-
-
-```{r RUE_NNI}
-
-# get RUE per plot and common index
-df_rue <- rue_norm %>% 
-  dplyr::select(Exp,N_treat,W_treat_lev,Rep, RUEnorm, RUE) %>% 
-  mutate(idMerge = paste0(Exp,"_",N_treat,"_",W_treat_lev,"_",Rep)) 
-
-# get NNI per plot and common index
-df_nni <- info %>%
-  filter(Stage== "final") %>% # use only final harvest data as per RUE df
-  dplyr::select(Experiment,N_Treatments,Water_treat_level, Rep, NNI) %>% 
-  mutate(idMerge = paste0(Experiment,"_",N_Treatments,"_",Water_treat_level,"_",Rep)) %>%
-  dplyr::select(-Experiment,-N_Treatments,-Water_treat_level, -Rep) # remove extra labels now
-
-df_rue_nni <- merge(df_nni,df_rue, by = "idMerge" )
-
-df_rue_nni$Rep <- as.factor(df_rue_nni$Rep)
-
-head(df_rue_nni)
-
+```{r SaveRUE}
+write.csv(rue_norm,"RUE_Estimated_FodderBeet.csv" )
 ```
 
-```{r checkData}
+## ANOVA RUE
 
-summary(df_rue_nni)
-
-```
-
-```{r}
-
-df_rue_nni %>%
-  ggplot(aes(x=N_treat, y=NNI, colour=Exp)) +
-  geom_jitter() +
-  geom_boxplot(alpha=0.2)
-
-```
-
-```{r}
-
-df_rue_nni %>%
-  filter(W_treat_lev == "fullET") %>%
-  ggplot(aes(x=N_treat, y=NNI,colour=Exp)) +
-  geom_jitter(aes(width=0.2)) +
-  geom_boxplot(alpha=0.2)
-
-```
-
-
-```{r NNI_RUE_Graph, warning=FALSE}
-
-# FIXME: This does not match emmanuel's data in excel needs checking
-
-xBreak = 1.1 # FIXME: just to test
-
-df_rue_nni %>%
-  filter(W_treat_lev == "fullET") %>%
-  na.omit() %>%
-  group_by(Exp,N_treat,W_treat_lev) %>%
-  summarise_each(funs(mean)) %>%
-  ggplot(aes(x=NNI, y=RUEnorm, colour=N_treat, shape=W_treat_lev)) +
-  geom_point() +
-  geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
-               linetype=1, colour ="black", size=1.2) +
-  geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
-  
-```
-
-
-ANOVA RUE
+- not tested yet
 
 ```{r ANOVA, echo=FALSE}
 
@@ -373,42 +345,6 @@ print(TukeyHSD(anova))
   }
   
 }
-
-```
-
-For RUE vs NNI 
-
-* Water_treat_level == "fullET"
-* 
-
-
-```{r Partitioning}
-
-# info %>%
-#   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date) %>%
-#   dplyr::select(Shoot_DM, Bulb_DM) %>%
-#   summarise_each(funs(mean, sd)) %>%
-#   tidyr::gather("Variable", "Value",7:8) %>%
-#   ggplot(aes(x=Date,y=Value)) +
-#   geom_area(aes(colour=Variable)) +
-#   facet_grid(.~Experiment, scales= "free") +
-#   ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
-#   xlab("Sampling date") +
-#   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
-#                     ymax=Value_mean+Value_sd/2), 
-#                 width=0.25)
-
-# make it reproducible
-# set.seed(1492)
-# Sector <- rep(c("S01","S02","S03","S04","S05","S06","S07"),times=7)
-# Year <- rep(c("1950","1960","1970","1980","1990","2000","2010"),each=7)
-# Value <- runif(49, 10, 100)
-# df <- data.frame(Sector,Year,Value)
-# 
-# gg <- ggplot(df, aes(x=as.numeric(as.character(Year)), y=Value))
-# gg <- gg + geom_area(aes(colour=Sector, fill=Sector))
-# gg
-
 
 ```
 
