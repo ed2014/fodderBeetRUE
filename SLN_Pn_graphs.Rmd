@@ -163,7 +163,7 @@ lapply(res.kmeans, function(x) x$withinss)
 res.within.ss <- sapply(res.kmeans, function(x) sum(x$withinss))
 ```
 
-# PLot cluster number and within cluster sums of squares
+# Plot cluster number and within cluster sums of squares
 
 ```{r, fig.height=8, fig.width=8}
 #plot
