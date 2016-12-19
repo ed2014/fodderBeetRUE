@@ -46,75 +46,101 @@ info %>%
 
 ## Normalise Pn values
 
-- Use only final harvest samples (rationale: )
-- Use only irrigated plots (rationale: )
-- Find maximum by Experiment
+- Find maximum by Experiment and Date
 - Average values by N treatment
 - Calculate normalised Pn by N treatment in relation to maximum Pn by treatment (rationale: instantaneous wheather conditions vary too much and affect Pn ... therefore better reduce noise using relative values)
 
+
+
 ```{r NormalisePn}
 
-df_Pn_norm <- info %>%
-  dplyr::filter(Stage == "final") %>%
-  dplyr::filter(Water_Treatments == "Irrigated") %>%
+# maximum Pn of a given day and treatmnet
+df_Pn_max <- info %>%
   na.omit() %>%
-#  group_by(Experiment, N_Treatments,Water_Treatments) %>%
-  group_by(Experiment, N_Treatments) %>%
-  summarise(Pn_sd = sd(Pn), SLN_sd = sd(SLN), Pn = mean(Pn), SLN = mean(SLN)) %>%
-  mutate(Pn_mx = max(Pn)) %>%
-  mutate(Pn_norm = Pn/Pn_mx) %>%
-  mutate(Pn_sd_norm = Pn_sd/Pn_mx)
+  group_by(Experiment, Date) %>%
+  summarise(Pn_max = max(Pn)) 
 
-summary(df_Pn_norm)
+head(df_Pn_max)
+
+# merge it with original
+df_Pn_norm <- merge(info, df_Pn_max, by = c("Experiment", "Date"))
 
 ```
 
 ```{r}
+summary(df_Pn_norm)
+```
+
+## Plot absolute values
+
+```{r}
+# plot
 df_Pn_norm %>%
-  kable(format = "markdown", digits = 2)
+ # filter(Stage == "final") %>%
+ # filter(Water_Treatments == "Irrigated") %>%
+  mutate(Pn_norm = Pn/Pn_max) %>%
+  group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  dplyr::select(SLN, Pn_norm, Pn) %>%
+  na.omit() %>%
+  summarise_each(funs(mean, sd)) %>%
+#  tidyr::gather("Variable","Value",SLN_mean:Pn_sd) %>%
+  ggplot(aes(x=SLN_mean , y=Pn_mean)) +
+  geom_point(aes(colour=N_Treatments, shape=Water_treat_level)) +
+    geom_errorbar(aes(ymin=Pn_mean-Pn_sd/2,
+                    ymax=Pn_mean+Pn_sd/2), width = 0.0, colour = "darkgrey") +
+    geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
+                    xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
+  ylab("Photosynthetic rate (umol/m2/s)") +
+  xlab("Specific Leaf Nitrogen (SLN)") +
+  theme(legend.title=element_blank())
 ```
 
+## Plot normalised values
 
-```{r BrokenStickStats}
+```{r}
 
-      out.lm<-lm(SLN~Pn_norm,data=df_Pn_norm)
+# cluster
 
-# FIXME: Not able to find break
-
-      # o <- segmented(out.lm,seg.Z=~SLN,psi=list(SLN=c(2.42)),
-      #              control=seg.control(display=FALSE))
-      # # show stats
-      # print(summary(o))
-      # 
-      # # find slope
-      # s = slope(o)
-      # s$SLN[2,1]
-      # 
-      # # find estimated break
-      # b = o$psi[,2]
-
-# forced by hand now at the moment: 
-b <- 2.47
-      
-      print(paste0("Break-point is:", b))
-      
+  
+# plot
+df_Pn_norm %>%
+  mutate(Pn_norm = Pn/Pn_max*100) %>%
+  group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  dplyr::select(SLN, Pn_norm, Pn) %>%
+  na.omit() %>%
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=SLN_mean , y=Pn_norm_mean)) +
+  geom_point(aes(colour=N_Treatments, shape=Water_treat_level)) +
+    geom_errorbar(aes(ymin=Pn_norm_mean-Pn_norm_sd/2,
+                    ymax=Pn_norm_mean+Pn_norm_sd/2), width = 0.0, colour = "darkgrey") +
+    geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
+                    xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
+  ylab("Normalised Photosynthetic rate (% maximum)") +
+  xlab("Specific Leaf Nitrogen (SLN)") +
+  theme(legend.title=element_blank())
 ```
+
+```{r}
+# df_Pn_norm %>%
+#   kable(format = "markdown", digits = 2)
+```
+
 
 ```{r Pn_norm_graph}
 
-df_Pn_norm %>%
-  ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments)) +
-  geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), 
-               linetype=1, colour ="black", size=1.2) +
-  geom_segment(aes(x = b, xend = max(SLN), y = 1, yend = 1), linetype=1, colour ="black", size=1.2) +
-  geom_point(aes(shape=Experiment)) +
-  geom_errorbar(aes(ymin=Pn_norm-Pn_sd_norm/2,
-                    ymax=Pn_norm+Pn_sd_norm/2)) +
- # facet_grid(.~Experiment) +
-  geom_errorbarh(aes(xmin = SLN-SLN_sd/2,
-                     xmax = SLN+SLN_sd/2)) +
-  xlab("Specific Leaf Nitrogen (SLN, g N/cm2)") +
-  ylab("Normalised maximum\n photosynthetic rate (fractional)")
+# df_Pn_norm %>%
+#   ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments)) +
+#   geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), 
+#                linetype=1, colour ="black", size=1.2) +
+#   geom_segment(aes(x = b, xend = max(SLN), y = 1, yend = 1), linetype=1, colour ="black", size=1.2) +
+#   geom_point(aes(shape=Experiment)) +
+#   geom_errorbar(aes(ymin=Pn_norm-Pn_sd_norm/2,
+#                     ymax=Pn_norm+Pn_sd_norm/2)) +
+#  # facet_grid(.~Experiment) +
+#   geom_errorbarh(aes(xmin = SLN-SLN_sd/2,
+#                      xmax = SLN+SLN_sd/2)) +
+#   xlab("Specific Leaf Nitrogen (SLN, g N/cm2)") +
+#   ylab("Normalised maximum\n photosynthetic rate (fractional)")
 
 ```
 

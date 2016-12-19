@@ -65,11 +65,16 @@ df_rue <- rue_norm %>%
 
 # get NNI per plot and common index
 df_nni <- info %>%
-  filter(Stage == "final") %>% # use only final harvest data as per RUE df FIXME: Should we use average?
-  dplyr::select(Experiment,N_Treatments,Water_treat_level, Rep, NNI) %>% 
+#  filter(Stage == "final") %>% # use only final harvest data as per RUE df FIXME: Should we use average?
+  group_by(Experiment,N_Treatments,Water_treat_level, Rep) %>%
+  dplyr::select(NNI) %>%
+  na.omit() %>%
+  summarise_each(funs(mean)) %>%
+#  dplyr::select(Date, Experiment,N_Treatments,Water_treat_level, Rep, NNI) %>% 
   mutate(idMerge = paste0(Experiment,"_",N_Treatments,"_",Water_treat_level,"_",Rep)) %>%
   dplyr::select(-Experiment,-N_Treatments,-Water_treat_level, -Rep) # remove extra labels now
 
+# merge dataframes
 df_rue_nni <- merge(df_nni,df_rue, by = "idMerge" )
 
 df_rue_nni$Rep <- as.factor(df_rue_nni$Rep)
@@ -81,6 +86,8 @@ head(df_rue_nni)
 ```{r checkData}
 
 summary(df_rue_nni)
+
+df_rue_nni %>% filter(is.na(NNI))
 
 ```
 
@@ -98,11 +105,10 @@ df_rue_nni %>%
 df_rue_nni %>%
   filter(W_treat_lev == "fullET") %>%
   ggplot(aes(x=N_treat, y=NNI,colour=Exp)) +
-  geom_jitter(aes(width=0.2)) +
-  geom_boxplot(alpha=0.2)
+  geom_point()
 
 ```
-
+ - Only use fullET because NNI is overestimated in water-stressed crops
 
 ```{r NNI_RUE_Graph, warning=FALSE}
 
@@ -111,108 +117,37 @@ df_rue_nni %>%
 xBreak = 1.1 # FIXME: just to test
 
 df_rue_nni %>%
-  filter(W_treat_lev == "fullET") %>%
+  filter(W_treat_lev == "fullET") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
+  filter(Exp != "C") %>%
+#  filter(W_treat_lev == "fullET") %>%  
   na.omit() %>%
+  group_by(Exp) %>%
+  mutate(RUEnorm = RUE/max(RUE)) %>%
+  ungroup()%>%
   group_by(Exp,N_treat,W_treat_lev) %>%
-  summarise_each(funs(mean)) %>%
-  ggplot(aes(x=NNI, y=RUEnorm, colour=N_treat, shape=W_treat_lev)) +
-  geom_point() +
-  geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
-               linetype=1, colour ="black", size=1.2) +
-  geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
+  summarise_each(funs(mean, sd)) %>%
+  ggplot(aes(x=NNI_mean, y=RUEnorm_mean)) +
+  geom_smooth(method="lm") +
+  geom_point(aes(shape=Exp, shape=W_treat_lev, colour=N_treat), size=2) +
+    geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
+                    ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.0, colour = "darkgrey") +
+    geom_errorbarh(aes(xmin=NNI_mean-NNI_sd/2,
+                    xmax=NNI_mean+NNI_sd/2), colour = "darkgrey") +
+  ylim(0.5, 1) +
+  ylab("Normalised radiation use efficiency (0-1) ") +
+  xlab("Nitrogen Nutrition Index (NNI)") +
+  theme(legend.title=element_blank())
+
+
+
+
+
+
+
+
+#+
+ # geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
+ #              linetype=1, colour ="black", size=1.2)# +
+ # geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
   
 ```
-
-
-ANOVA RUE
-
-```{r ANOVA, echo=FALSE}
-
-str(resTable)
-
-exp <- unique(resTable$Exp)
-
-
-for(e in 1:length(exp)) {
-  
-  if(e == 1) {
-    
-anova <- NULL
-df <- NULL
-df <- resTable %>% subset(Exp == exp[e])
-
-anova <- aov(RUE ~ N_treat+Rep, data = df)
-print("############## EXP A ##############")
-print(" ")
-print(summary(anova))
-print(TukeyHSD(anova))
-
-    
-  } else if ( e == 2) {
-    
-anova <- NULL
-df <- NULL
-df <- resTable %>% subset(Exp == exp[e])
- 
-  
-anova <- aov(RUE ~ N_treat*W_treat_lev+Rep, data = df)
-print("############## EXP B ##############")
-print(" ")
-print(summary(anova))
-print(TukeyHSD(anova))
-    
-  }  else if (e == 3) {
-    
-anova <- NULL
-df <- NULL
-df <- resTable %>% subset(Exp == exp[e])
-
-anova <- aov(RUE ~ W_treat_lev+Rep, data = df)
-print("############## EXP C ##############")
-print(" ")
-print(summary(anova))
-print(TukeyHSD(anova))
-    
-  }
-  
-}
-
-```
-
-For RUE vs NNI 
-
-* Water_treat_level == "fullET"
-* 
-
-
-```{r Partitioning}
-
-# info %>%
-#   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date) %>%
-#   dplyr::select(Shoot_DM, Bulb_DM) %>%
-#   summarise_each(funs(mean, sd)) %>%
-#   tidyr::gather("Variable", "Value",7:8) %>%
-#   ggplot(aes(x=Date,y=Value)) +
-#   geom_area(aes(colour=Variable)) +
-#   facet_grid(.~Experiment, scales= "free") +
-#   ylab("Total biomass (g/m2)                 Intercepted light (MJ/m2) ") +
-#   xlab("Sampling date") +
-#   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
-#                     ymax=Value_mean+Value_sd/2), 
-#                 width=0.25)
-
-# make it reproducible
-# set.seed(1492)
-# Sector <- rep(c("S01","S02","S03","S04","S05","S06","S07"),times=7)
-# Year <- rep(c("1950","1960","1970","1980","1990","2000","2010"),each=7)
-# Value <- runif(49, 10, 100)
-# df <- data.frame(Sector,Year,Value)
-# 
-# gg <- ggplot(df, aes(x=as.numeric(as.character(Year)), y=Value))
-# gg <- gg + geom_area(aes(colour=Sector, fill=Sector))
-# gg
-
-
-```
-
-

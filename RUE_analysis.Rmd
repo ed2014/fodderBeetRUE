@@ -1,8 +1,8 @@
 ---
 title: "RUE Fodder Beet"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -253,7 +253,8 @@ resTable %>%
   ylab("Radiation use efficiency (g/MJ) ") +
   xlab(" N rate (kg N/ha)")+
     geom_errorbar(aes(ymin=mean-sd/2,
-                    ymax=mean+sd/2), width = 0.25) 
+                    ymax=mean+sd/2), width = 0.25) +
+  theme(legend.title=element_blank())
 
 ```
 
@@ -281,10 +282,11 @@ rue_norm %>%
  # geom_line() +
   geom_smooth(aes(colour=factor(W_treat)),se = FALSE, method="lm") +
   ylab("Normalised radiation use efficiency (0-1) ") +
-  xlab(" N rate (kg N/ha)")+
+  xlab(" N rate (kg N/ha)") +
     geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
                     ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.25) +
-  ylim(0.5, 1)
+  ylim(0.5, 1) +
+  theme(legend.title=element_blank())
 ```
 
 ```{r SaveRUE}
