@@ -24,10 +24,13 @@ info <- read.table(paste0(fileFolder, "RUE.txt"), header = TRUE)
 str(info)
 
 info$N_Treatments <- as.factor(info$N_Treatments)
-info$Date <- dmy(info$Date )
+# as.Date(info$Date, "%m/%d/%Y")
+info$Date <- dmy(info$Date) # FIXME: Had some problems not parsing this format - not sure why
 info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
 
 summary(info)
+
+str(info$Date)
 ```
 
 
@@ -35,7 +38,7 @@ summary(info)
 
 - raw data all points
 
-```{r}
+```{r, fig.height=8, fig.width=8}
 
 info %>%
   ggplot(aes(x=SLN, y=Pn, colour=N_Treatments))+
@@ -62,9 +65,11 @@ df_Pn_max <- info %>%
 
 head(df_Pn_max)
 
+```
+
+```{r}
 # merge it with original
 df_Pn_norm <- merge(info, df_Pn_max, by = c("Experiment", "Date"))
-
 ```
 
 ```{r}
@@ -73,7 +78,7 @@ summary(df_Pn_norm)
 
 ## Plot absolute values
 
-```{r}
+```{r, fig.height=8, fig.width=8}
 # plot
 df_Pn_norm %>%
  # filter(Stage == "final") %>%
@@ -97,11 +102,8 @@ df_Pn_norm %>%
 
 ## Plot normalised values
 
-```{r}
+```{r, fig.height=8, fig.width=8}
 
-# cluster
-
-  
 # plot
 df_Pn_norm %>%
   mutate(Pn_norm = Pn/Pn_max*100) %>%
@@ -120,27 +122,92 @@ df_Pn_norm %>%
   theme(legend.title=element_blank())
 ```
 
-```{r}
-# df_Pn_norm %>%
-#   kable(format = "markdown", digits = 2)
+## Cluster analysis
+
+```{r Cluster}
+
+
+# Used this method: http://rstudio-pubs-static.s3.amazonaws.com/2598_ccd642fc32854463844c6f9cc153983a.html
+
+# This is also good: http://www.statmethods.net/advstats/cluster.html
+
+# select data
+mydata <- df_Pn_norm %>% 
+  na.omit() %>%
+  dplyr::select(Pn,SLN) # %>%
+#  scale()
+
+head(mydata)
+
+
+
 ```
 
+```{r}
+#plot data
+mydata %>%
+  ggplot(aes(x=SLN, y=Pn)) +
+  geom_point()
+```
 
-```{r Pn_norm_graph}
+```{r, include=FALSE}
+# cluster with 1 to 10 cluster
+res.kmeans <- lapply(1:10, function(i) {
+    kmeans(mydata[,c("SLN","Pn")], centers = i)
+})
 
-# df_Pn_norm %>%
-#   ggplot(aes(x=SLN, y=Pn_norm, colour=N_Treatments)) +
-#   geom_segment(aes(x = min(SLN), xend = b, y = 0.84, yend = 1), 
-#                linetype=1, colour ="black", size=1.2) +
-#   geom_segment(aes(x = b, xend = max(SLN), y = 1, yend = 1), linetype=1, colour ="black", size=1.2) +
-#   geom_point(aes(shape=Experiment)) +
-#   geom_errorbar(aes(ymin=Pn_norm-Pn_sd_norm/2,
-#                     ymax=Pn_norm+Pn_sd_norm/2)) +
-#  # facet_grid(.~Experiment) +
-#   geom_errorbarh(aes(xmin = SLN-SLN_sd/2,
-#                      xmax = SLN+SLN_sd/2)) +
-#   xlab("Specific Leaf Nitrogen (SLN, g N/cm2)") +
-#   ylab("Normalised maximum\n photosynthetic rate (fractional)")
+## SS for each cluster (1 cluster to 10 clusters)
+lapply(res.kmeans, function(x) x$withinss)
+
+## Sum up SS
+res.within.ss <- sapply(res.kmeans, function(x) sum(x$withinss))
+```
+
+# PLot cluster number and within cluster sums of squares
+
+```{r, fig.height=8, fig.width=8}
+#plot
+ggplot(data.frame(cluster = 1:10, within.ss = res.within.ss), aes(cluster, within.ss)) +
+    geom_point() + geom_line() +
+    scale_x_continuous(breaks = 0:10)
+```
+
+## Check all clusters in graph
+
+```{r, include=FALSE, echo=FALSE}
+# colour cluster
+cluster.colors <- lapply(res.kmeans, function(x) x$cluster)
+
+# loop on graphs
+lapply(cluster.colors,
+      function(colors) {
+          plot.dat <- cbind(mydata, cluster = factor(colors))
+
+          gg.obj <- ggplot(plot.dat, aes(SLN, Pn, color = cluster)) +
+              geom_point() + labs(title = paste(nlevels(factor(colors))))
+
+          print(gg.obj)
+      })
+
+```
+
+## Plot graph for selected cluster number
+
+```{r, fig.height=8, fig.width=8}
+
+colour.selected <- cluster.colors[[5]]
+
+col.func <- function(colors) {
+          plot.dat <- cbind(mydata, cluster = factor(colors))
+
+          gg.obj <- ggplot(plot.dat, aes(SLN, Pn, color = cluster)) +
+              geom_point() + labs(title = paste(nlevels(factor(colors))))
+
+          print(gg.obj) 
+}
+
+col.func(colour.selected)
+
 
 ```
 
