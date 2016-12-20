@@ -53,8 +53,6 @@ info %>%
 - Average values by N treatment
 - Calculate normalised Pn by N treatment in relation to maximum Pn by treatment (rationale: instantaneous wheather conditions vary too much and affect Pn ... therefore better reduce noise using relative values)
 
-
-
 ```{r NormalisePn}
 
 # maximum Pn of a given day and treatmnet
@@ -70,34 +68,18 @@ head(df_Pn_max)
 ```{r}
 # merge it with original
 df_Pn_norm <- merge(info, df_Pn_max, by = c("Experiment", "Date"))
+
+df_Pn_norm <- df_Pn_norm %>%
+mutate(Pn_norm = Pn/Pn_max*100)
 ```
 
 ```{r}
 summary(df_Pn_norm)
 ```
 
-## Plot absolute values
 
-```{r, fig.height=8, fig.width=8}
-# plot
-df_Pn_norm %>%
- # filter(Stage == "final") %>%
- # filter(Water_Treatments == "Irrigated") %>%
-  mutate(Pn_norm = Pn/Pn_max) %>%
-  group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
-  dplyr::select(SLN, Pn_norm, Pn) %>%
-  na.omit() %>%
-  summarise_each(funs(mean, sd)) %>%
-#  tidyr::gather("Variable","Value",SLN_mean:Pn_sd) %>%
-  ggplot(aes(x=SLN_mean , y=Pn_mean)) +
-  geom_point(aes(colour=N_Treatments, shape=Water_treat_level)) +
-    geom_errorbar(aes(ymin=Pn_mean-Pn_sd/2,
-                    ymax=Pn_mean+Pn_sd/2), width = 0.0, colour = "darkgrey") +
-    geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
-                    xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
-  ylab("Photosynthetic rate (umol/m2/s)") +
-  xlab("Specific Leaf Nitrogen (SLN)") +
-  theme(legend.title=element_blank())
+```{r}
+head(df_Pn_norm)
 ```
 
 ## Plot normalised values
@@ -105,24 +87,85 @@ df_Pn_norm %>%
 ```{r, fig.height=8, fig.width=8}
 
 # plot
-df_Pn_norm %>%
-  mutate(Pn_norm = Pn/Pn_max*100) %>%
+df_mean <- df_Pn_norm %>%
   group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   dplyr::select(SLN, Pn_norm, Pn) %>%
   na.omit() %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_each(funs(mean, sd))
+
+
+```
+
+
+```{r FindClusters}
+
+clusNo <- 4 # selected from sensitivity cluster analysis below
+
+myClus <- kmeans(df_mean[,c("SLN_mean","Pn_mean")], centers = clusNo)
+
+myClus_res.within.ss <- sum(myClus$withinss)
+
+clusterClass <- myClus$cluster
+
+dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
+
+# add numbers
+dftemp2 <- data.frame(myClus$centers)
+dftemp2 <- dftemp2[order(dftemp2$Pn_mean, decreasing = TRUE), ] # FIXME: not working for label order
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," and SLN: ",round(dftemp2$SLN_mean,1)))
+
+dftemp2$clusterNo <- c(1:clusNo)
+dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)
+dftemp2$Pn_mean <- NULL
+dftemp2$SLN_mean <- NULL
+
+df_cluster <- merge(dftemp1,dftemp2, by="clusterNo")
+df_cluster <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decreasing = TRUE), ] # FIXME: not working
+
+```
+
+## Plot absolute values
+
+- 4th cluster has only 3 points so no elipse can be calculated
+
+```{r, fig.height=8, fig.width=8}
+# plot
+df_cluster %>%
+  ggplot(aes(x=SLN_mean , y=Pn_mean, linetype = clusterLabel)) +
+  geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size =3) +
+    geom_errorbar(aes(ymin=Pn_mean-Pn_sd/2,
+                    ymax=Pn_mean+Pn_sd/2), width = 0.0, colour = "darkgrey") +
+    geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
+                    xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
+  ylab("Photosynthetic rate (mmol/m2/s)") +
+  xlab("Specific Leaf Nitrogen (SLN, g N/cm2 leaf)") +
+ # facet_grid(Experiment~.) +
+  stat_ellipse(type = "t") +
+  theme(legend.title=element_blank())
+
+# FIXME: Need to order Pn decreasing
+
+```
+
+## Graph normalised Pn
+
+- Pn divideed by the maximum Pn pf a give "date" and "experimnent"
+- Aim is to reduce some of the noise from instantaneous Pn readings in response to time/location
+
+```{r}
+df_mean %>%
   ggplot(aes(x=SLN_mean , y=Pn_norm_mean)) +
-  geom_point(aes(colour=N_Treatments, shape=Water_treat_level)) +
+  geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size = 3) +
     geom_errorbar(aes(ymin=Pn_norm_mean-Pn_norm_sd/2,
                     ymax=Pn_norm_mean+Pn_norm_sd/2), width = 0.0, colour = "darkgrey") +
     geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
                     xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
   ylab("Normalised Photosynthetic rate (% maximum)") +
   xlab("Specific Leaf Nitrogen (SLN)") +
-  theme(legend.title=element_blank())
+  theme(legend.title=element_blank()) 
 ```
 
-## Cluster analysis
+## Cluster analysis to select cluster number used above
 
 ```{r Cluster}
 
@@ -132,10 +175,7 @@ df_Pn_norm %>%
 # This is also good: http://www.statmethods.net/advstats/cluster.html
 
 # select data
-mydata <- df_Pn_norm %>% 
-  na.omit() %>%
-  dplyr::select(Pn,SLN) # %>%
-#  scale()
+mydata <- df_mean
 
 head(mydata)
 
@@ -143,17 +183,20 @@ head(mydata)
 
 ```
 
-```{r}
+# Plot averages
+
+```{r, include = FALSE}
 #plot data
 mydata %>%
-  ggplot(aes(x=SLN, y=Pn)) +
+  na.omit() %>%
+  ggplot(aes(x=SLN_mean, y=Pn_mean)) +
   geom_point()
 ```
 
 ```{r, include=FALSE}
 # cluster with 1 to 10 cluster
-res.kmeans <- lapply(1:10, function(i) {
-    kmeans(mydata[,c("SLN","Pn")], centers = i)
+res.kmeans <- lapply(1:10, function(i) { ## this is a list of 10 itens
+    kmeans(mydata[,c("SLN_mean","Pn_mean")], centers = i) # function that does kmeans
 })
 
 ## SS for each cluster (1 cluster to 10 clusters)
@@ -168,7 +211,8 @@ res.within.ss <- sapply(res.kmeans, function(x) sum(x$withinss))
 ```{r, fig.height=8, fig.width=8}
 #plot
 ggplot(data.frame(cluster = 1:10, within.ss = res.within.ss), aes(cluster, within.ss)) +
-    geom_point() + geom_line() +
+  geom_point() + 
+  geom_line() +
     scale_x_continuous(breaks = 0:10)
 ```
 
@@ -183,7 +227,7 @@ lapply(cluster.colors,
       function(colors) {
           plot.dat <- cbind(mydata, cluster = factor(colors))
 
-          gg.obj <- ggplot(plot.dat, aes(SLN, Pn, color = cluster)) +
+          gg.obj <- ggplot(plot.dat, aes(SLN_mean, Pn_mean, color = cluster)) +
               geom_point() + labs(title = paste(nlevels(factor(colors))))
 
           print(gg.obj)
@@ -191,16 +235,16 @@ lapply(cluster.colors,
 
 ```
 
-## Plot graph for selected cluster number
+## Plot graph for all raw data with selected cluster number
 
 ```{r, fig.height=8, fig.width=8}
 
-colour.selected <- cluster.colors[[5]]
+colour.selected <- cluster.colors[[3]] # select cluster number here!
 
 col.func <- function(colors) {
           plot.dat <- cbind(mydata, cluster = factor(colors))
 
-          gg.obj <- ggplot(plot.dat, aes(SLN, Pn, color = cluster)) +
+          gg.obj <- ggplot(plot.dat, aes(SLN_mean, Pn_mean, color = cluster)) +
               geom_point() + labs(title = paste(nlevels(factor(colors))))
 
           print(gg.obj) 
