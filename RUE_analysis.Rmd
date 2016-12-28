@@ -40,7 +40,7 @@ head(info)
 ```
 
 
-```{r TimeSeries, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
+```{r TimeSeries, echo=FALSE, warning=FALSE,fig.height=4, fig.width=8}
 
 info %>%
  # dplyr::select(-Shoot_DM, -Bulb_DM) %>%
@@ -55,12 +55,13 @@ info %>%
   geom_point() +
   geom_line() +
   facet_grid(Variable~Experiment, scales= "free") +
-  ylab("Intercepted light (MJ/m2) Total biomass (g/m2)") +
+  ylab("Intercepted light (MJ/m2)        Total biomass (g/m2)") +
   xlab("Sampling date") +
   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
                     ymax=Value_mean+Value_sd/2), 
                 width=0.25) +
   theme(legend.title=element_blank(),strip.text.y = element_blank())
+#  theme(legend.title=element_blank())
   
   
 ```
