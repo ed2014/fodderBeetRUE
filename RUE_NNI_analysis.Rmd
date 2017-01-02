@@ -87,7 +87,7 @@ head(df_rue_nni)
 
 summary(df_rue_nni)
 
-df_rue_nni %>% filter(is.na(NNI))
+#df_rue_nni %>% filter(is.na(NNI))
 
 ```
 
@@ -103,7 +103,7 @@ df_rue_nni %>%
 ```{r}
 
 df_rue_nni %>%
-  filter(W_treat_lev == "fullET") %>%
+  filter(W_treat_lev == "ET100_1w") %>%
   ggplot(aes(x=N_treat, y=NNI,colour=Exp)) +
   geom_point()
 
@@ -116,9 +116,9 @@ df_rue_nni %>%
 
 xBreak = 1.1 # FIXME: just to test
 
-df_rue_nni %>%
-  filter(W_treat_lev == "fullET") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
-  filter(Exp != "C") %>%
+graphNNI <- df_rue_nni %>%
+  filter(W_treat_lev == "ET100_1w") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
+  filter(Exp != "W-") %>%
 #  filter(W_treat_lev == "fullET") %>%  
   na.omit() %>%
   group_by(Exp) %>%
@@ -128,26 +128,77 @@ df_rue_nni %>%
   summarise_each(funs(mean, sd)) %>%
   ggplot(aes(x=NNI_mean, y=RUEnorm_mean)) +
   geom_smooth(method="lm") +
-  geom_point(aes(shape=Exp, shape=W_treat_lev, colour=N_treat), size=2) +
+ # geom_smooth() +
+  geom_point(aes(colour=N_treat), size=2) +
     geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
                     ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.0, colour = "darkgrey") +
     geom_errorbarh(aes(xmin=NNI_mean-NNI_sd/2,
                     xmax=NNI_mean+NNI_sd/2), colour = "darkgrey") +
-  ylim(0.5, 1) +
+  ylim(0.7, 1.05) +
   ylab("Normalised radiation use efficiency (0-1) ") +
   xlab("Nitrogen Nutrition Index (NNI)") +
-  theme(legend.title=element_blank())
+  theme(legend.title=element_blank())+ theme(legend.position="top")
 
-
-
-
-
-
-
-
+graphNNI
 #+
  # geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
  #              linetype=1, colour ="black", size=1.2)# +
  # geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
   
 ```
+```{r}
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+```
+
+```{r, fig.height=4, fig.width=10}
+
+multiplot(graphRUEnorm,graphNNI,cols=2)
+
+```
+

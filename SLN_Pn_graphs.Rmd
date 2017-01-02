@@ -130,7 +130,7 @@ df_cluster <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decre
 
 ```{r, fig.height=8, fig.width=8}
 # plot
-df_cluster %>%
+g_abs <- df_cluster %>%
   ggplot(aes(x=SLN_mean , y=Pn_mean, linetype = clusterLabel)) +
   geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size =3) +
     geom_errorbar(aes(ymin=Pn_mean-Pn_sd/2,
@@ -138,14 +138,48 @@ df_cluster %>%
     geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
                     xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
   ylab("Photosynthetic rate (mmol/m2/s)") +
-  xlab("Specific Leaf Nitrogen (SLN, g N/cm2 leaf)") +
+  xlab("") +
  # facet_grid(Experiment~.) +
   stat_ellipse(type = "t") +
-  theme(legend.title=element_blank())
+  theme(legend.title=element_blank()) #+ theme(legend.position="none")
+
+g_abs
 
 # FIXME: Need to order Pn decreasing
 
 ```
+
+
+
+
+```{r FindClusters}
+
+clusNo <- 4 # selected from sensitivity cluster analysis below
+
+myClus <- kmeans(df_mean[,c("SLN_mean","Pn_norm_mean")], centers = clusNo)
+
+myClus_res.within.ss <- sum(myClus$withinss)
+
+clusterClass <- myClus$cluster
+
+dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
+
+# add numbers
+dftemp2 <- data.frame(myClus$centers)
+dftemp2 <- dftemp2[order(dftemp2$Pn_norm_mean, decreasing = TRUE), ] # FIXME: not working for label order
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_norm_mean,1)," and SLN: ",round(dftemp2$SLN_mean,1)))
+
+dftemp2$clusterNo <- c(1:clusNo)
+dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)
+dftemp2$Pn_norm_mean <- NULL
+dftemp2$SLN_mean <- NULL
+
+df_cluster <- merge(dftemp1,dftemp2, by="clusterNo")
+df_cluster <- df_cluster[order(df_cluster$Pn_norm_mean,df_cluster$clusterLabel, decreasing = TRUE), ] # FIXME: not working
+
+```
+
+
 
 ## Graph normalised Pn
 
@@ -153,8 +187,8 @@ df_cluster %>%
 - Aim is to reduce some of the noise from instantaneous Pn readings in response to time/location
 
 ```{r}
-df_mean %>%
-  ggplot(aes(x=SLN_mean , y=Pn_norm_mean)) +
+g_norm <- df_cluster %>%
+  ggplot(aes(x=SLN_mean , y=Pn_norm_mean, linetype = clusterLabel)) +
   geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size = 3) +
     geom_errorbar(aes(ymin=Pn_norm_mean-Pn_norm_sd/2,
                     ymax=Pn_norm_mean+Pn_norm_sd/2), width = 0.0, colour = "darkgrey") +
@@ -162,8 +196,67 @@ df_mean %>%
                     xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
   ylab("Normalised Photosynthetic rate (% maximum)") +
   xlab("Specific Leaf Nitrogen (SLN)") +
+  theme(legend.title=element_blank()) +
+ # facet_grid(Experiment~.) +
+  stat_ellipse(type = "t") +
   theme(legend.title=element_blank()) 
+
+g_norm
 ```
+
+```{r, fig.height=10, fig.width=8}
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+multiplot(g_abs,g_norm,cols = 1)
+
+```
+
+
 
 ## Cluster analysis to select cluster number used above
 

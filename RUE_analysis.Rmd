@@ -44,18 +44,20 @@ head(info)
 
 info %>%
  # dplyr::select(-Shoot_DM, -Bulb_DM) %>%
+  mutate(Total_DM=Total_DM*10/1000) %>%
   tidyr::gather("Variable", "Value",11:12) %>%
   mutate(Variable = as.factor(Variable))  %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date, Variable) %>%
   summarise_each(funs(mean, sd)) %>%
   mutate(Variable = factor(Variable, levels=c("Total_DM", "Interception"))) %>%
   ggplot(aes(x=Date,y=Value_mean, 
-             shape=factor(N_Treatments),
-             colour=factor(Water_treat_level))) +
+             shape=factor(Water_treat_level),
+             linetype=factor(Water_treat_level),
+             colour=factor(N_Treatments))) +
   geom_point() +
   geom_line() +
   facet_grid(Variable~Experiment, scales= "free") +
-  ylab("Intercepted light (MJ/m2)        Total biomass (g/m2)") +
+  ylab(" Intercepted  light (MJ/m2)  Total biomass (t DM/ha)") +
   xlab("Sampling date") +
   geom_errorbar(aes(ymin=Value_mean-Value_sd/2,
                     ymax=Value_mean+Value_sd/2), 
@@ -68,7 +70,7 @@ info %>%
 
 ## Including Plots
 
-```{r N_effect, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
+```{r N_effect, echo=FALSE, warning=FALSE,fig.height=4, fig.width=8}
 
 # biomass
 info %>%
@@ -86,14 +88,14 @@ info %>%
                     ymax=Total_DM_mean+Total_DM_sd/2), 
                 width=0.25) +
  # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(Potential~Experiment) +
+   facet_grid(.~Experiment) +
   theme(legend.title=element_blank())
 
 
 
 ```
 
-```{r, warning=FALSE,fig.height=8, fig.width=8}
+```{r, warning=FALSE,fig.height=4, fig.width=8}
 # light interception
 info %>%
   filter(Stage == "final") %>%
@@ -110,7 +112,7 @@ info %>%
                     ymax=Interception_mean+Interception_sd/2), 
                 width=0.25) +
  # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(Potential~Experiment)+
+   facet_grid(.~Experiment)+
   theme(legend.title=element_blank())
 ```
 
@@ -118,7 +120,7 @@ info %>%
 - Not forcing to zero due to potential bias
 - First biomass harvest is at very high interception (biased overestimation of RUE?)
 
-```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE,fig.height=8, fig.width=8}
+```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE,fig.height=4, fig.width=8}
 
 info %>%
  # dplyr::select(Date, N_Treatments, Water_Treatments,Total_DM,Interception)  %>%
@@ -136,14 +138,14 @@ info %>%
     geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd/2,
                     ymax=Total_DM_mean+Total_DM_sd/2)) +
  # facet_wrap(~N_Treatments, ncol=3)
- facet_grid(Potential~Experiment) +
+ facet_grid(.~Experiment) +
   theme(legend.title=element_blank())
 
 
 ```
 
 
-```{r RUECalc, echo=FALSE, warning=FALSE, include=TRUE,fig.height=8, fig.width=8}
+```{r RUECalc, echo=FALSE, warning=FALSE, include=TRUE,fig.height=4, fig.width=8}
 
 # calculate RUE per plot
 
@@ -221,7 +223,7 @@ summary(resTable)
 
 ## Check all RUE estimates
 
-```{r,fig.height=8, fig.width=8}
+```{r,fig.height=4, fig.width=8}
 resTable %>%
   ggplot(aes(x=N_treat, y=RUE, colour=W_treat)) +
   geom_point() +
@@ -233,26 +235,27 @@ resTable %>%
   kable(format = "markdown", digits = 2)
 ```
 
-```{r, warning=FALSE,fig.height=8, fig.width=8}
+```{r, warning=FALSE,fig.height=4, fig.width=8}
 
 x <- resTable %>%
-  group_by(Exp, N_treat, W_treat) %>%
+  group_by(Exp, N_treat, W_treat, W_treat_lev) %>%
   summarise_each(funs(mean, sd))
 
 
 # graph
 resTable %>%
-  group_by(Exp, N_treat, W_treat) %>%
+  group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
   dplyr::select(RUE) %>%
   summarise_each(funs(mean, sd)) %>%
-  ggplot(aes(x=N_treat, y=as.numeric(mean),
-             shape=factor(W_treat),
-             colour=factor(W_treat))) +
+  ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(mean),
+             shape=factor(W_treat_lev),
+             colour=factor(W_treat_lev))) +
   geom_point(size = 2) +
-  geom_line() +
+ # geom_line() +
+  geom_smooth(method="lm") +
   facet_grid(.~Exp) +
   ylab("Radiation use efficiency (g/MJ) ") +
-  xlab(" N rate (kg N/ha)")+
+  xlab("N fertiliser rate (kg N/ha)")+
     geom_errorbar(aes(ymin=mean-sd/2,
                     ymax=mean+sd/2), width = 0.25) +
   theme(legend.title=element_blank())
@@ -268,26 +271,34 @@ rue_norm <- resTable %>%
   mutate(RUEnorm = RUE/RUEmax) 
 
 head(rue_norm)
+
+
+```
+
+```{r}
+summary(rue_norm)
 ```
 
 
 ```{r, warning=FALSE}
-rue_norm %>%
+graphRUEnorm <- rue_norm %>%
 #  mutate(N_treat_num = as.numeric(as.character(N_treat))) %>%
-  filter(Exp != "C") %>% # no N response in exp C
+  filter(Exp != "W-") %>% # no N response in exp C
   group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
   summarise_each(funs(mean, sd)) %>%
   ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(RUEnorm_mean),
              colour=factor(W_treat))) +
-  geom_point(aes(shape=factor(Exp)),size = 4) +
+  geom_point(aes(shape=factor(W_treat)),size = 4) +
  # geom_line() +
-  geom_smooth(aes(colour=factor(W_treat)),se = FALSE, method="lm") +
+  geom_smooth(aes(linetype=factor(W_treat)),se = TRUE, method="lm") +
   ylab("Normalised radiation use efficiency (0-1) ") +
   xlab(" N rate (kg N/ha)") +
     geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
                     ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.25) +
-  ylim(0.5, 1) +
-  theme(legend.title=element_blank())
+  ylim(0.5, 1.05) +
+  theme(legend.title=element_blank())+ theme(legend.position="top")
+
+graphRUEnorm
 ```
 
 ```{r SaveRUE}
