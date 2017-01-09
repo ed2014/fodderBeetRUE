@@ -112,7 +112,7 @@ dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
 # add numbers
 dftemp2 <- data.frame(myClus$centers)
 dftemp2 <- dftemp2[order(dftemp2$Pn_mean, decreasing = TRUE), ] # FIXME: not working for label order
-dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," and SLN: ",round(dftemp2$SLN_mean,1)))
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," mmols/m2/s and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
 
 dftemp2$clusterNo <- c(1:clusNo)
 dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)
@@ -167,7 +167,7 @@ dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
 # add numbers
 dftemp2 <- data.frame(myClus$centers)
 dftemp2 <- dftemp2[order(dftemp2$Pn_norm_mean, decreasing = TRUE), ] # FIXME: not working for label order
-dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_norm_mean,1)," and SLN: ",round(dftemp2$SLN_mean,1)))
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_norm_mean,1),"% maximum and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
 
 dftemp2$clusterNo <- c(1:clusNo)
 dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)

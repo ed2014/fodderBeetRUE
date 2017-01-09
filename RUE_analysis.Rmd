@@ -219,6 +219,9 @@ head(resTable)
 
 ```{r, echo=FALSE,fig.height=8, fig.width=8}
 summary(resTable)
+
+print("Range in RUE estimates (fractional): ")
+max(resTable$RUE)/min(resTable$RUE)
 ```
 
 ## Check all RUE estimates
@@ -233,7 +236,15 @@ resTable %>%
 ```{r}
 resTable %>%
   kable(format = "markdown", digits = 2)
+
 ```
+
+
+```{r SaveRUE}
+#write.csv(rue_norm,"RUE_Estimated_FodderBeet.csv" )
+write.csv(resTable, "RUE_stats.csv")
+```
+
 
 ```{r, warning=FALSE,fig.height=4, fig.width=8}
 
@@ -301,10 +312,6 @@ graphRUEnorm <- rue_norm %>%
 graphRUEnorm
 ```
 
-```{r SaveRUE}
-write.csv(rue_norm,"RUE_Estimated_FodderBeet.csv" )
-```
-
 ## ANOVA RUE
 
 - not tested yet
@@ -359,6 +366,27 @@ print(TukeyHSD(anova))
   }
   
 }
+
+```
+```{r,fig.height=4, fig.width=8}
+
+info %>%
+  mutate(Total_DM = Total_DM/100) %>% # back dfrom g/m2 to kg/ha
+  mutate(HI=Bulb_DM/Total_DM*100) %>%
+  group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level) %>%
+  summarise( HI_sd = sd(HI), HI = mean(HI)) %>%
+  summary() %>%
+  ggplot(aes(x=Date, y=HI, linetype=Water_Treatments)) +
+  geom_point(aes(shape=factor(N_Treatments), colour=factor(Water_treat_level))) +
+ # geom_smooth() +
+  facet_grid(.~Experiment, scale= "free") +
+  ylab("Storage root in total biomass (%)") +
+  ylim(0,100)+
+  labs(linetype="Water supply", colour="Water supply level", shape="Nitrogen supply") +     
+  geom_errorbar(aes(ymin=HI-HI_sd/2,
+                    ymax=HI+HI_sd/2), 
+                width=0.25, colour="darkgrey")
+  
 
 ```
 
