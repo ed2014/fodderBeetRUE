@@ -116,7 +116,7 @@ df_rue_nni %>%
 
 xBreak = 1.1 # FIXME: just to test
 
-graphNNI <- df_rue_nni %>%
+dfNNI <- df_rue_nni %>%
   filter(W_treat_lev == "ET100_1w") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
   filter(Exp != "W-") %>%
 #  filter(W_treat_lev == "fullET") %>%  
@@ -125,7 +125,10 @@ graphNNI <- df_rue_nni %>%
   mutate(RUEnorm = RUE/max(RUE)) %>%
   ungroup()%>%
   group_by(Exp,N_treat,W_treat_lev) %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_each(funs(mean, sd)) 
+
+
+graphNNI <- dfNNI %>% 
   ggplot(aes(x=NNI_mean, y=RUEnorm_mean)) +
   geom_smooth(method="lm") +
  # geom_smooth() +
@@ -146,6 +149,29 @@ graphNNI
  # geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
   
 ```
+
+
+# find coefficients
+
+```{r}
+df <- dfNNI %>% 
+  as.data.frame() %>%
+  mutate(RUEnorm_mean = as.numeric(RUEnorm_mean)) %>%
+  mutate(NNI_mean = as.numeric(as.character(NNI_mean))) %>%
+  dplyr::select(RUEnorm_mean, NNI_mean) 
+
+mod = (lm(RUEnorm_mean ~ NNI_mean, data = df)) 
+
+print(paste0("Intercept: ",summary(mod)$coeff[1]))  
+print(paste0("Slope: ",summary(mod)$coeff[2])) 
+print(paste0("R2: ",summary(mod)$r.squared)) 
+print(paste0("Pvalue: ",summary(mod)$coeff[8])) 
+
+```
+
+
+
+
 ```{r}
 
 # Multiple plot function
@@ -198,7 +224,9 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ```{r, fig.height=4, fig.width=10}
 
-multiplot(graphRUEnorm,graphNNI,cols=2)
+# this needs to be run with the RUE norm script to work to have graph in memory - FIXME
+
+# multiplot(graphRUEnorm,graphNNI,cols=2)
 
 ```
 

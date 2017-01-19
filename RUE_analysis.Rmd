@@ -273,6 +273,24 @@ resTable %>%
 
 ```
 
+# give stats linear coeff
+
+```{r}
+resTable %>% 
+  ungroup() %>%
+  mutate(RUE = as.numeric(RUE)) %>%
+  mutate(N_treat = as.numeric(as.character(N_treat))) %>%
+  group_by(Exp,W_treat) %>%
+  do(mod = lm(RUE ~ N_treat, data = .)) %>%
+  mutate(Intercept = summary(mod)$coeff[1]) %>% # slope
+  mutate(Slope = summary(mod)$coeff[2]) %>%
+  mutate(R2 = summary(mod)$r.squared) %>%
+  mutate(Pvalue=summary(mod)$coeff[8]) %>%
+  select(-mod)
+```
+
+
+
 ```{r NormRUE}
 # normalise within each experiment
 rue_norm <- resTable %>%
@@ -292,11 +310,14 @@ summary(rue_norm)
 
 
 ```{r, warning=FALSE}
-graphRUEnorm <- rue_norm %>%
+RUEnorm_df <- rue_norm %>%
 #  mutate(N_treat_num = as.numeric(as.character(N_treat))) %>%
   filter(Exp != "W-") %>% # no N response in exp C
   group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_each(funs(mean, sd))
+  
+  
+graphRUEnorm <- RUEnorm_df  %>% 
   ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(RUEnorm_mean),
              colour=factor(W_treat))) +
   geom_point(aes(shape=factor(W_treat)),size = 4) +
@@ -311,6 +332,27 @@ graphRUEnorm <- rue_norm %>%
 
 graphRUEnorm
 ```
+
+# Give linear coefficients 
+
+```{r}
+
+RUEnorm_df %>% 
+  ungroup() %>%
+  mutate(RUEnorm_mean = as.numeric(RUEnorm_mean)) %>%
+  mutate(N_treat = as.numeric(as.character(N_treat))) %>%
+  group_by(W_treat) %>%
+  do(mod = lm(RUEnorm_mean ~ N_treat, data = .)) %>%
+  mutate(Intercept = summary(mod)$coeff[1]) %>% # slope
+  mutate(Slope = summary(mod)$coeff[2]) %>%
+  mutate(R2 = summary(mod)$r.squared) %>%
+  mutate(Pvalue=summary(mod)$coeff[8]) %>%
+  select(-mod)
+
+```
+
+
+
 
 ## ANOVA RUE
 
@@ -375,10 +417,10 @@ info %>%
   mutate(HI=Bulb_DM/Total_DM*100) %>%
   group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level) %>%
   summarise( HI_sd = sd(HI), HI = mean(HI)) %>%
-  summary() %>%
+#  summary() %>%
   ggplot(aes(x=Date, y=HI, linetype=Water_Treatments)) +
   geom_point(aes(shape=factor(N_Treatments), colour=factor(Water_treat_level))) +
- # geom_smooth() +
+  geom_smooth() +
   facet_grid(.~Experiment, scale= "free") +
   ylab("Storage root in total biomass (%)") +
   ylim(0,100)+
