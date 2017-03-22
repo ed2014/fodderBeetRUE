@@ -1,6 +1,8 @@
 ---
 title: "Untitled"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 
@@ -32,17 +34,18 @@ info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
 
 summary(info)
 
-
+df_x <- info %>%
+  mutate(RUE=Total_DM/Interception)
 
 ```
 
 ```{r}
 # read RUE calculated from raw data
-rue_norm <- read.csv(paste0(fileFolder, "RUE_Estimated_FodderBeet.csv"))
+rue_norm <- read.csv(paste0(fileFolder, "RUE_Normalised.csv"))
 
  rue_norm$N_treat <- as.factor(rue_norm$N_treat)
  rue_norm$W_treat <- as.factor(rue_norm$W_treat)
- rue_norm$Rep <- as.factor(rue_norm$Rep)
+# rue_norm$Rep <- as.factor(rue_norm$Rep)
 # info$Total_DM <- info$Total_DM*100 # kg/ha to g/m2
  
 str(rue_norm)
@@ -58,26 +61,26 @@ head(rue_norm)
 
 ```{r RUE_NNI}
 
-# get RUE per plot and common index
+# get RUEnorm per treat and create common index
 df_rue <- rue_norm %>% 
-  dplyr::select(Exp,N_treat,W_treat_lev,Rep, RUEnorm, RUE) %>% 
-  mutate(idMerge = paste0(Exp,"_",N_treat,"_",W_treat_lev,"_",Rep)) 
+  dplyr::select(Exp,N_treat,W_treat_lev, RUE_av) %>% 
+  mutate(idMerge = paste0(Exp,"_",N_treat,"_",W_treat_lev)) 
 
-# get NNI per plot and common index
+# get average NNI per treat and create common index
 df_nni <- info %>%
 #  filter(Stage == "final") %>% # use only final harvest data as per RUE df FIXME: Should we use average?
-  group_by(Experiment,N_Treatments,Water_treat_level, Rep) %>%
+  group_by(Experiment,N_Treatments,Water_treat_level) %>%
   dplyr::select(NNI) %>%
   na.omit() %>%
-  summarise_each(funs(mean)) %>%
+  summarise_each(funs(median)) %>%
 #  dplyr::select(Date, Experiment,N_Treatments,Water_treat_level, Rep, NNI) %>% 
-  mutate(idMerge = paste0(Experiment,"_",N_Treatments,"_",Water_treat_level,"_",Rep)) %>%
-  dplyr::select(-Experiment,-N_Treatments,-Water_treat_level, -Rep) # remove extra labels now
+  mutate(idMerge = paste0(Experiment,"_",N_Treatments,"_",Water_treat_level)) %>%
+  dplyr::select(-Experiment,-N_Treatments,-Water_treat_level) # remove extra labels now
 
-# merge dataframes
+# merge RUEnorm with NNI
 df_rue_nni <- merge(df_nni,df_rue, by = "idMerge" )
 
-df_rue_nni$Rep <- as.factor(df_rue_nni$Rep)
+#df_rue_nni$Rep <- as.factor(df_rue_nni$Rep)
 
 head(df_rue_nni)
 
@@ -92,7 +95,7 @@ summary(df_rue_nni)
 ```
 
 ```{r}
-
+# check
 df_rue_nni %>%
   ggplot(aes(x=N_treat, y=NNI, colour=Exp)) +
   geom_jitter() +
@@ -103,7 +106,7 @@ df_rue_nni %>%
 ```{r}
 
 df_rue_nni %>%
-  filter(W_treat_lev == "ET100_1w") %>%
+ # filter(W_treat_lev == "ET100_1w") %>% #  fullwater
   ggplot(aes(x=N_treat, y=NNI,colour=Exp)) +
   geom_point()
 
@@ -117,30 +120,35 @@ df_rue_nni %>%
 xBreak = 1.1 # FIXME: just to test
 
 dfNNI <- df_rue_nni %>%
-  filter(W_treat_lev == "ET100_1w") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
-  filter(Exp != "W-") %>%
+ # filter(W_treat_lev == "ET100_1w") %>% # FIXME: is it better to use Potential (i.e. add some extra treats? - no because only C and it has no N treats)
+ # filter(Exp != "W-") %>%
 #  filter(W_treat_lev == "fullET") %>%  
   na.omit() %>%
-  group_by(Exp) %>%
-  mutate(RUEnorm = RUE/max(RUE)) %>%
-  ungroup()%>%
+  # group_by(Exp) %>%
+  # mutate(RUEnorm = RUE/max(RUE)) %>%
+  # ungroup()%>%
   group_by(Exp,N_treat,W_treat_lev) %>%
   summarise_each(funs(mean, sd)) 
 
 
-graphNNI <- dfNNI %>% 
-  ggplot(aes(x=NNI_mean, y=RUEnorm_mean)) +
-  geom_smooth(method="lm") +
- # geom_smooth() +
-  geom_point(aes(colour=N_treat), size=2) +
-    geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
-                    ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.0, colour = "darkgrey") +
-    geom_errorbarh(aes(xmin=NNI_mean-NNI_sd/2,
-                    xmax=NNI_mean+NNI_sd/2), colour = "darkgrey") +
-  ylim(0.7, 1.05) +
-  ylab("Normalised radiation use efficiency (0-1) ") +
+graphNNI <- df_rue_nni %>% 
+ #  filter(Exp != "W-", W_treat_lev == "ET100_1w") %>%
+  ggplot(aes(x=NNI, y=RUE_av)) +
+#  geom_smooth(method="lm") +
+  geom_smooth(method='lm') +
+  geom_point(aes(colour=N_treat, shape=Exp), size=2) +
+    # geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
+    #                 ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.0, colour = "darkgrey") +
+    # geom_errorbarh(aes(xmin=NNI_mean-NNI_sd/2,
+    #                 xmax=NNI_mean+NNI_sd/2), colour = "darkgrey") +
+#  ylim(0.7, 1.05) +
+    ylim(0, 4) +
+  ylab("Radiation use efficiency (0-1) ") +
   xlab("Nitrogen Nutrition Index (NNI)") +
-  theme(legend.title=element_blank())+ theme(legend.position="top")
+  # geom_segment(aes(x=0.85,xend=1.0,y=2.8,yend=3.5), linetype=2) +
+  # geom_segment(aes(x=1.0,xend=1.5,y=3.5,yend=3.5), linetype=2) +
+  theme(legend.title=element_blank())+ theme(legend.position="top")# +
+#  facet_grid(.~Exp)
 
 graphNNI
 #+
@@ -156,7 +164,7 @@ graphNNI
 ```{r}
 df <- dfNNI %>% 
   as.data.frame() %>%
-  mutate(RUEnorm_mean = as.numeric(RUEnorm_mean)) %>%
+  mutate(RUEnorm_mean = as.numeric(RUE_av_mean)) %>%
   mutate(NNI_mean = as.numeric(as.character(NNI_mean))) %>%
   dplyr::select(RUEnorm_mean, NNI_mean) 
 

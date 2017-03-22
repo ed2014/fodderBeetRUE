@@ -38,7 +38,7 @@ str(info$Date)
 
 - raw data all points
 
-```{r, fig.height=8, fig.width=8}
+```{r, fig.height=4, fig.width=8}
 
 info %>%
   ggplot(aes(x=SLN, y=Pn, colour=N_Treatments))+
@@ -91,8 +91,10 @@ df_mean <- df_Pn_norm %>%
   group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   dplyr::select(SLN, Pn_norm, Pn) %>%
   na.omit() %>%
-  summarise_each(funs(mean, sd))
+  summarise_each(funs(mean, sd))%>%
+  as.data.frame()
 
+summary(df_mean)
 
 ```
 
@@ -128,7 +130,7 @@ df_cluster <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decre
 
 - 4th cluster has only 3 points so no elipse can be calculated
 
-```{r, fig.height=8, fig.width=8}
+```{r, fig.height=4, fig.width=8}
 # plot
 g_abs <- df_cluster %>%
   ggplot(aes(x=SLN_mean , y=Pn_mean, linetype = clusterLabel)) +
@@ -180,13 +182,12 @@ df_cluster <- df_cluster[order(df_cluster$Pn_norm_mean,df_cluster$clusterLabel, 
 ```
 
 
-
 ## Graph normalised Pn
 
 - Pn divideed by the maximum Pn pf a give "date" and "experimnent"
 - Aim is to reduce some of the noise from instantaneous Pn readings in response to time/location
 
-```{r}
+```{r, fig.height=4, fig.width=8}
 g_norm <- df_cluster %>%
   ggplot(aes(x=SLN_mean , y=Pn_norm_mean, linetype = clusterLabel)) +
   geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size = 3) +
@@ -332,7 +333,7 @@ lapply(cluster.colors,
 
 ```{r, fig.height=8, fig.width=8}
 
-colour.selected <- cluster.colors[[3]] # select cluster number here!
+colour.selected <- cluster.colors[[4]] # select cluster number here!
 
 col.func <- function(colors) {
           plot.dat <- cbind(mydata, cluster = factor(colors))
