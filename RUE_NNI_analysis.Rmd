@@ -63,7 +63,7 @@ head(rue_norm)
 
 # get RUEnorm per treat and create common index
 df_rue <- rue_norm %>% 
-  dplyr::select(Exp,N_treat,W_treat_lev, RUE_av) %>% 
+  dplyr::select(Exp,N_treat,W_treat_lev, RUEnorm) %>% 
   mutate(idMerge = paste0(Exp,"_",N_treat,"_",W_treat_lev)) 
 
 # get average NNI per treat and create common index
@@ -133,29 +133,29 @@ dfNNI <- df_rue_nni %>%
 
 graphNNI <- df_rue_nni %>% 
  #  filter(Exp != "W-", W_treat_lev == "ET100_1w") %>%
-  ggplot(aes(x=NNI, y=RUE_av)) +
+  mutate(W_treat=as.factor(ifelse(W_treat_lev == "rainfed", "rain-fed", "irrigated"))) %>%
+  ggplot(aes(x=NNI, y=RUEnorm, colour=W_treat)) +
 #  geom_smooth(method="lm") +
-  geom_smooth(method='lm') +
-  geom_point(aes(colour=N_treat, shape=Exp), size=2) +
+  geom_smooth(method='lm', aes(fill=W_treat), alpha=0.2) +
+  geom_point(aes( shape=Exp), size=2) +
     # geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd/2,
     #                 ymax=RUEnorm_mean+RUEnorm_sd/2), width = 0.0, colour = "darkgrey") +
     # geom_errorbarh(aes(xmin=NNI_mean-NNI_sd/2,
     #                 xmax=NNI_mean+NNI_sd/2), colour = "darkgrey") +
 #  ylim(0.7, 1.05) +
-    ylim(0, 4) +
-  ylab("Radiation use efficiency (0-1) ") +
+    # ylim(0, 4) +
+  ylab("Normalised radiation use efficiency (0-1) ") +
   xlab("Nitrogen Nutrition Index (NNI)") +
   # geom_segment(aes(x=0.85,xend=1.0,y=2.8,yend=3.5), linetype=2) +
   # geom_segment(aes(x=1.0,xend=1.5,y=3.5,yend=3.5), linetype=2) +
-  theme(legend.title=element_blank())+ theme(legend.position="top")# +
-#  facet_grid(.~Exp)
+   theme(legend.title=element_blank())+ theme(legend.position="top") # +
+  # geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1),
+  #            linetype=1, colour ="black", size=1.2) +
+  # geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
+  
 
 graphNNI
-#+
- # geom_segment(aes(x = min(NNI), xend = xBreak, y = 0.75, yend = 1), 
- #              linetype=1, colour ="black", size=1.2)# +
- # geom_segment(aes(x = xBreak, xend = max(NNI), y = 1, yend = 1), linetype=1, colour ="black", size=1.2)
-  
+
 ```
 
 

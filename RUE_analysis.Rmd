@@ -20,6 +20,8 @@ library(knitr)
 
 ## Read and clean data
 
+* Note that only points before canopy senescence were used for RUE calculation
+
 ```{r Read, include=TRUE, echo=FALSE}
 
 fileFolder <- "C:\\GitHubRepos\\FodderBeetRUE_2016\\"
@@ -39,6 +41,9 @@ summary(info)
 
 # Check individual points
 
+* Data at final point of analysis
+* Do not consider full set
+
 ```{r, echo=FALSE, fig.height=4, fig.width=8}
 head(info)
 
@@ -55,6 +60,10 @@ head(info)
 
 
 ```
+Light Interception
+
+* Also at end point of analysis
+* Due to teh lack of effect of irrigation frequency on biomass or interception, data from all irrigation frequencies will be analysed as "irrigated" (FIXME: triple-check if this is the case)
 
 ```{r}
 info %>%
@@ -66,6 +75,21 @@ info %>%
   facet_grid(Experiment~Water_treat_level)
 ```
 
+## Check how irrig x rain-fed data looks
+
+```{r}
+
+info %>%
+  filter(Stage=="end_analysis")  %>%
+  select(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Date, Total_DM, Interception) %>%
+tidyr::gather("Variable","Value",Total_DM:Interception) %>%
+  ggplot(aes(x=N_Treatments, y=Value, colour=Water_Treatments)) +
+  geom_point() +
+  facet_wrap(Variable~Experiment, scales="free")
+
+
+```
+
 ## Plot time series
 
 ```{r TimeSeries, echo=FALSE, warning=FALSE,fig.height=4, fig.width=8}
@@ -75,22 +99,28 @@ info %>%
   mutate(Total_DM=Total_DM*10/1000) %>%
   tidyr::gather("Variable", "Value",11:12) %>%
   mutate(Variable = as.factor(Variable))  %>%
-  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential, Date, Variable) %>%
+  group_by(Experiment, N_Treatments, Water_Treatments,         Date, Variable) %>%
+  # Water_treat_level, Potential, Date, Variable) %>%
   summarise_each(funs(mean, sd)) %>%
   mutate(Variable = factor(Variable, levels=c("Total_DM", "Interception"))) %>%
   ggplot(aes(x=Date,y=Value_mean, 
-             shape=factor(Water_treat_level),
-             linetype=factor(Water_treat_level),
-             colour=factor(N_Treatments))) +
-  geom_point() +
-  geom_line() +
+             colour=factor(Water_Treatments),
+             linetype=factor(N_Treatments),
+             shape=factor(N_Treatments))) +
+  geom_point(size=2) +
+  geom_line(aes(linetype=factor(Water_Treatments))) +
   facet_grid(Variable~Experiment, scales= "free") +
-  ylab(" Intercepted  light (MJ/m2)  Total biomass (t DM/ha)") +
+  ylab("IPAR (MJ/m2)         W (t DM/ha)") +
   xlab("Measurement date") +
   geom_errorbar(aes(ymin=Value_mean-Value_sd,
                     ymax=Value_mean+Value_sd), 
                 width=0.25) +
-  theme(legend.title=element_blank(),strip.text.y = element_blank())
+  theme(strip.text.y = element_blank()) +
+  scale_linetype_discrete(guide = FALSE) +
+  theme(legend.position="top") +
+  labs(shape="N supply (kg/ha)", 
+        colour = "Water supply") # +
+#  theme(legend.title=element_blank(),strip.text.y = element_blank())
 #  theme(legend.title=element_blank())
   
   
@@ -106,21 +136,21 @@ info %>%
 # biomass
 info %>%
   filter(Stage == "end_analysis") %>%
-  group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
+  group_by(Experiment, N_Treatments, Water_Treatments, Potential) %>%
   summarise_each(funs(mean, sd)) %>%
   mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) %>%
   ggplot(aes(x=N_Treatments,y=Total_DM_mean, 
-             shape=factor(Water_Treatments),
-             colour=factor(Water_treat_level))) +
-  geom_point() +
+             shape=factor(Experiment),
+             colour=factor(Water_Treatments))) +
+  geom_point(size=2) +
+  geom_smooth(aes(fill=factor(Water_Treatments)),se = TRUE, method="lm") +
   ylab("Total biomass (g/m2) ") +
   xlab(" N rate (kg N/ha)") +
   geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd,
                     ymax=Total_DM_mean+Total_DM_sd), 
-                width=0.25) +
- # facet_wrap(Experiment~Potential, ncol=3)
-   facet_grid(.~Experiment) +
-  theme(legend.title=element_blank())
+                width=0.3)  +
+  labs(shape="Experiment", 
+        colour = "Water supply") 
 
 
 
@@ -192,7 +222,7 @@ df <- NULL
 df <- df_int %>% subset(Experiment == exp[e])
  
   
-anova <- aov(Interception ~ N_Treatments*Water_treat_level+Rep, data = df)
+anova <- aov(Interception ~ N_Treatments*Water_Treatments+Rep, data = df)
 print("############## EXP B ##############")
 print(" ")
 print(summary(anova))
@@ -204,7 +234,7 @@ anova <- NULL
 df <- NULL
 df <- df_int %>% subset(Experiment == exp[e])
 
-anova <- aov(Interception ~ Water_treat_level+Rep, data = df)
+anova <- aov(Interception ~ Water_Treatments+Rep, data = df)
 print("############## EXP C ##############")
 print(" ")
 print(summary(anova))
@@ -222,7 +252,7 @@ print(TukeyHSD(anova))
 ```{r pressure, echo=FALSE, echo=FALSE, warning=FALSE,fig.height=4, fig.width=8}
 df_rue_all <-  info %>%
 #  filter(UseForRUE == "Yes") %>% # Only use points in which biomass increases (i.e. no senescence)
-  group_by(Experiment,UseForRUE, N_Treatments, Water_Treatments,Water_treat_level,Date, Potential) %>%
+  group_by(Experiment,UseForRUE, N_Treatments, Water_Treatments,Date, Potential) %>%
   mutate(Total_DM = Total_DM) %>% # from t/ha to g/m2
   summarise_each(funs(mean,sd)) %>%
   mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) 
@@ -233,21 +263,21 @@ df_rue_yes <-  df_rue_all %>%
 df_rue_yes %>%
   ggplot(aes(x=Interception_mean,y=Total_DM_mean, 
              shape=factor(N_Treatments),
-             colour=factor(Water_treat_level))) +
+             colour=factor(Water_Treatments))) +
   geom_point() +
   geom_smooth(method=lm, se=FALSE, aes(linetype=factor(N_Treatments))) +
   geom_point(data=df_rue_all,aes(x=Interception_mean,y=Total_DM_mean,
-                                 colour=factor(Water_treat_level),
+                                 colour=factor(Water_Treatments),
               
                                  shape=factor(N_Treatments)
                                  ))+
   ylab("Total biomass (g/m2) ") +
   xlab(" Light interception (MJ/m2)") +
-    geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd,
+  geom_errorbar(aes(ymin=Total_DM_mean-Total_DM_sd,
                     ymax=Total_DM_mean+Total_DM_sd)) +
  # facet_wrap(~N_Treatments, ncol=3)
  facet_grid(.~Experiment) +
-  theme(legend.title=element_blank())
+theme(legend.title=element_blank())
 
 
 ```
@@ -359,20 +389,24 @@ x <- resTable %>%
 # graph
 resTable %>%
   group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
-  filter(Exp != "W-") %>%
+ # filter(Exp != "W-") %>%
   dplyr::select(RUE) %>%
   summarise_each(funs(mean, sd)) %>%
   ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(mean),
              colour=factor(W_treat))) +
   geom_point(size = 2, aes(shape=factor(Exp))) +
  # geom_line() +
-  geom_smooth(method="lm") +
-  facet_grid(.~Exp) +
+  geom_smooth(method="lm", aes(fill=W_treat), alpha=0.2) +
+#  facet_grid(.~Exp) +
   ylab("Radiation use efficiency (g/MJ) ") +
   xlab("N fertiliser rate (kg N/ha)")+
-    geom_errorbar(aes(ymin=mean-sd,
+  geom_errorbar(aes(ymin=mean-sd,
                     ymax=mean+sd), width = 0.25) +
-  theme(legend.title=element_blank())
+ # theme(legend.title=element_blank()) +
+  labs(shape="Experiment", 
+        colour = "Water supply") +
+  scale_fill_discrete(guide = FALSE) 
+
 
 ```
 
@@ -431,18 +465,18 @@ summary(rue_norm)
 #   summarise_each(funs(mean, sd)) 
 
 graphRUEnorm <- rue_norm %>%
-  filter(Exp!="W-") %>%
+ # filter(Exp!="W-") %>%
   ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(RUEnorm),
              colour=factor(W_treat))) +
-  geom_point(aes(shape=factor(W_treat)),size = 4) +
+  geom_point(aes(shape=factor(Exp)),size = 4) +
  # geom_line() +
-  geom_smooth(aes(linetype=factor(W_treat)),se = TRUE, method="lm") +
+  geom_smooth(aes(fill=factor(W_treat)),se = TRUE, method="lm", alpha=0.2) +
   ylab("Normalised radiation use efficiency (0-1) ") +
   xlab(" N rate (kg N/ha)") +
      # geom_errorbar(aes(ymin=RUEnorm_mean-RUEnorm_sd, # not averaged anymore
      #                 ymax=RUEnorm_mean+RUEnorm_sd), width = 0.5) +
-  ylim(0.5, 1.05) +
-  facet_grid(.~Exp)+
+  ylim(0.0, 1.05) +
+ # facet_grid(.~Exp)+
   theme(legend.title=element_blank()) + 
   theme(legend.position="top") 
 
@@ -594,9 +628,12 @@ info %>%
   summarise(Total_DM= mean(Total_DM), HI_sd = sd(HI), HI = mean(HI)) %>%
 #  summary() %>%
   ggplot(aes(x=Total_DM, y=HI, linetype=Water_Treatments)) +
-  geom_point(aes(shape=factor(N_Treatments), colour=factor(Water_treat_level))) +
+  geom_point(aes(shape=factor(N_Treatments), colour=factor(Water_Treatments))) +
   geom_smooth() +
 #  facet_grid(.~Experiment, scale= "free") +
+   scale_linetype_discrete(guide = FALSE) +
+  theme(legend.position="top") +
+
   ylab("Storage root in total biomass (%)") +
   xlab("Total crop biomass (kg/ha)") +
   ylim(0,100)+

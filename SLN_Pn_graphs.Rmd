@@ -114,15 +114,16 @@ dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
 # add numbers
 dftemp2 <- data.frame(myClus$centers)
 dftemp2 <- dftemp2[order(dftemp2$Pn_mean, decreasing = TRUE), ] # FIXME: not working for label order
-dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," mmols/m2/s and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
+# dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," mmols/m2/s and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_mean,1)," and SLN: ",round(dftemp2$SLN_mean,1)))
 
 dftemp2$clusterNo <- c(1:clusNo)
 dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)
 dftemp2$Pn_mean <- NULL
 dftemp2$SLN_mean <- NULL
 
-df_cluster <- merge(dftemp1,dftemp2, by="clusterNo")
-df_cluster <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decreasing = TRUE), ] # FIXME: not working
+df_cluster1 <- merge(dftemp1,dftemp2, by="clusterNo")
+df_cluster1 <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decreasing = TRUE), ] # FIXME: not working
 
 ```
 
@@ -130,24 +131,29 @@ df_cluster <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decre
 
 - 4th cluster has only 3 points so no elipse can be calculated
 
-```{r, fig.height=4, fig.width=8}
+```{r, fig.height=8, fig.width=12}
 # plot
-g_abs <- df_cluster %>%
+g_abs <- df_cluster1 %>%
   ggplot(aes(x=SLN_mean , y=Pn_mean, linetype = clusterLabel)) +
-  geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size =3) +
+  geom_point(aes(shape=N_Treatments, 
+                 colour=Water_Treatments), size = 3) +
     geom_errorbar(aes(ymin=Pn_mean-Pn_sd/2,
                     ymax=Pn_mean+Pn_sd/2), width = 0.0, colour = "darkgrey") +
     geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
                     xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
   ylab("Photosynthetic rate (mmol/m2/s)") +
-  xlab("") +
+  xlab("Specific leaf nitrogen (g N/cm2)") +
  # facet_grid(Experiment~.) +
   stat_ellipse(type = "t") +
-  theme(legend.title=element_blank()) #+ theme(legend.position="none")
+ # scale_linetype_discrete(guide = FALSE) +
+  labs(shape="N supply (kg/ha)", 
+        colour = "Water supply")
 
 g_abs
 
 # FIXME: Need to order Pn decreasing
+
+#View(df_cluster)
 
 ```
 
@@ -169,7 +175,7 @@ dftemp1 <- cbind(df_mean, clusterNo = factor(clusterClass))
 # add numbers
 dftemp2 <- data.frame(myClus$centers)
 dftemp2 <- dftemp2[order(dftemp2$Pn_norm_mean, decreasing = TRUE), ] # FIXME: not working for label order
-dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_norm_mean,1),"% maximum and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
+dftemp2$clusterLabel <- as.factor(paste0("Pn: ",round(dftemp2$Pn_norm_mean,1),"% and SLN: ",round(dftemp2$SLN_mean,1)," g N/m2"))
 
 dftemp2$clusterNo <- c(1:clusNo)
 dftemp2$clusterNo <- as.numeric(dftemp2$clusterNo)
@@ -187,20 +193,24 @@ df_cluster <- df_cluster[order(df_cluster$Pn_norm_mean,df_cluster$clusterLabel, 
 - Pn divideed by the maximum Pn pf a give "date" and "experimnent"
 - Aim is to reduce some of the noise from instantaneous Pn readings in response to time/location
 
-```{r, fig.height=4, fig.width=8}
+```{r, fig.height=6, fig.width=12}
 g_norm <- df_cluster %>%
   ggplot(aes(x=SLN_mean , y=Pn_norm_mean, linetype = clusterLabel)) +
-  geom_point(aes(colour=N_Treatments, shape=Water_treat_level), size = 3) +
+  geom_point(aes(colour=N_Treatments, shape=Water_Treatments), size = 4) +
     geom_errorbar(aes(ymin=Pn_norm_mean-Pn_norm_sd/2,
                     ymax=Pn_norm_mean+Pn_norm_sd/2), width = 0.0, colour = "darkgrey") +
     geom_errorbarh(aes(xmin=SLN_mean-SLN_sd/2,
                     xmax=SLN_mean+SLN_sd/2), colour = "darkgrey")+
-  ylab("Normalised Photosynthetic rate (% maximum)") +
+  ylab("Normalised Photosynthetic rate \n(% maximum)") +
   xlab("Specific Leaf Nitrogen (SLN)") +
-  theme(legend.title=element_blank()) +
+#  theme(legend.title=element_blank()) +
  # facet_grid(Experiment~.) +
   stat_ellipse(type = "t") +
-  theme(legend.title=element_blank()) 
+ # theme(legend.title=element_blank()) +
+  labs(colour="N supply (kg/ha)",
+       linetype= "Cluster",
+        shape = "Water supply") +
+theme(text = element_text(size=20)) + guides(fill=guide_legend(nrow=2,byrow=TRUE))
 
 g_norm
 ```
