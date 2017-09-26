@@ -101,7 +101,7 @@ info %>%
   mutate(Variable = as.factor(Variable))  %>%
   group_by(Experiment, N_Treatments, Water_Treatments,         Date, Variable) %>%
   # Water_treat_level, Potential, Date, Variable) %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_all(funs(mean, sd)) %>%
   mutate(Variable = factor(Variable, levels=c("Total_DM", "Interception"))) %>%
   ggplot(aes(x=Date,y=Value_mean, 
              colour=factor(Water_Treatments),
@@ -137,7 +137,7 @@ info %>%
 info %>%
   filter(Stage == "end_analysis") %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Potential) %>%
-  summarise_each(funs(mean, sd)) %>%
+  summarise_all(funs(mean, sd)) %>%
   mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) %>%
   ggplot(aes(x=N_Treatments,y=Total_DM_mean, 
              shape=factor(Experiment),
@@ -166,7 +166,7 @@ info_av <- info %>%
   filter(Stage == "end_analysis") %>%
   group_by(Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   filter(Interception == max(Interception)) %>%
-  summarise_each(funs(mean, sd)) 
+  summarise_all(funs(mean, sd)) 
 
 
 info_av %>%
@@ -254,7 +254,7 @@ df_rue_all <-  info %>%
 #  filter(UseForRUE == "Yes") %>% # Only use points in which biomass increases (i.e. no senescence)
   group_by(Experiment,UseForRUE, N_Treatments, Water_Treatments,Date, Potential) %>%
   mutate(Total_DM = Total_DM) %>% # from t/ha to g/m2
-  summarise_each(funs(mean,sd)) %>%
+  summarise_all(funs(mean,sd)) %>%
   mutate(Potential = factor(Potential, levels=c("Potential", "Limited"))) 
 
 df_rue_yes <-  df_rue_all %>%
@@ -379,24 +379,30 @@ write.csv(resTable, "RUE_stats.csv")
 ```
 
 
-```{r, warning=FALSE,fig.height=4, fig.width=8}
+```{r, warning=FALSE,fig.height=4, fig.width=6}
+
+# error from meta-model (Esther Meeenken) is 0.7 g DM/MJ
+
+df_e <- data.frame(x=c(205,205), y=c(3.3,4.0), W_treat="Irrigated", N_treat="0", W_treat_lev="ET100_1w", Exp="N-" ) # point to show error
+
+
 
 x <- resTable %>%
   group_by(Exp, N_treat, W_treat, W_treat_lev) %>%
-  summarise_each(funs(mean, sd))
+  summarise_all(funs(mean, sd))
 
 
 # graph
 resTable %>%
   group_by(Exp, N_treat, W_treat,W_treat_lev) %>%
  # filter(Exp != "W-") %>%
-  dplyr::select(RUE) %>%
-  summarise_each(funs(mean, sd)) %>%
+  dplyr::select(Exp, N_treat, W_treat,W_treat_lev, RUE) %>%
+  summarise_all(funs(mean, sd)) %>%
   ggplot(aes(x=as.numeric(as.character(N_treat)), y=as.numeric(mean),
              colour=factor(W_treat))) +
   geom_point(size = 2, aes(shape=factor(Exp))) +
  # geom_line() +
-  geom_smooth(method="lm", aes(fill=W_treat), alpha=0.2) +
+#  geom_smooth(method="lm", aes(fill=W_treat), alpha=0.2) +
 #  facet_grid(.~Exp) +
   ylab("Radiation use efficiency (g/MJ) ") +
   xlab("N fertiliser rate (kg N/ha)")+
@@ -405,7 +411,9 @@ resTable %>%
  # theme(legend.title=element_blank()) +
   labs(shape="Experiment", 
         colour = "Water supply") +
-  scale_fill_discrete(guide = FALSE) 
+  scale_fill_discrete(guide = FALSE)  +
+  ylim(0,4.5) +
+  geom_line(data=df_e, aes(x=x,y=y), size=1.0, colour = "black")
 
 
 ```
@@ -440,7 +448,7 @@ rue_norm <- resTable %>%
   mutate(RUEmax = max(RUE_av)) %>%
   mutate(RUEnorm = RUE_av/RUEmax) %>%
   group_by(Exp, N_treat, W_treat, W_treat_lev) %>% # quick fix to remove duplicated lines
-  summarise_each(funs(mean))
+  summarise_all(funs(mean))
   
 
 head(rue_norm)
@@ -462,7 +470,7 @@ summary(rue_norm)
 # rue_norm_av <- rue_norm  %>% 
 #   filter(Exp!="W-") %>%
 #   group_by(N_treat,W_treat) %>%
-#   summarise_each(funs(mean, sd)) 
+#   summarise_all(funs(mean, sd)) 
 
 graphRUEnorm <- rue_norm %>%
  # filter(Exp!="W-") %>%

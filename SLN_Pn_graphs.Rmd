@@ -4,7 +4,7 @@ output: html_document
 ---
 
 
-```{r setup, include=FALSE}
+```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(lubridate)
@@ -91,7 +91,7 @@ df_mean <- df_Pn_norm %>%
   group_by(Date, Experiment, N_Treatments, Water_Treatments, Water_treat_level, Potential) %>%
   dplyr::select(SLN, Pn_norm, Pn) %>%
   na.omit() %>%
-  summarise_each(funs(mean, sd))%>%
+  summarise_all(funs(mean, sd))%>%
   as.data.frame()
 
 summary(df_mean)
@@ -123,7 +123,7 @@ dftemp2$Pn_mean <- NULL
 dftemp2$SLN_mean <- NULL
 
 df_cluster1 <- merge(dftemp1,dftemp2, by="clusterNo")
-df_cluster1 <- df_cluster[order(df_cluster$Pn_mean,df_cluster$clusterLabel, decreasing = TRUE), ] # FIXME: not working
+df_cluster1 <- df_cluster1[order(df_cluster1$Pn_mean,df_cluster1$clusterLabel, decreasing = TRUE), ] # FIXME: not working
 
 ```
 
@@ -297,7 +297,7 @@ mydata %>%
   geom_point()
 ```
 
-```{r, include=FALSE}
+```{r, include=TRUE}
 # cluster with 1 to 10 cluster
 res.kmeans <- lapply(1:10, function(i) { ## this is a list of 10 itens
     kmeans(mydata[,c("SLN_mean","Pn_mean")], centers = i) # function that does kmeans
@@ -322,7 +322,7 @@ ggplot(data.frame(cluster = 1:10, within.ss = res.within.ss), aes(cluster, withi
 
 ## Check all clusters in graph
 
-```{r, include=FALSE, echo=FALSE}
+```{r, include=TRUE, echo=FALSE}
 # colour cluster
 cluster.colors <- lapply(res.kmeans, function(x) x$cluster)
 
